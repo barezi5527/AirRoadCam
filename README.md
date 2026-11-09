@@ -1,17 +1,27 @@
 # RoadCam
 
-Native Android-Dashcam-Prototyp mit Kotlin, Jetpack Compose und CameraX.
+Native Android-Dashcam-App mit Kotlin, Jetpack Compose und CameraX.
+
+## Download
+
+Die aktuelle APK steht unter [Releases](https://github.com/barezi5527/RoadCam/releases/latest) bereit.
+
+Voraussetzung: Android 10 (API 29) oder neuer. Zum Installieren die APK öffnen und die Installation aus unbekannten Quellen erlauben.
 
 ## Aktueller Umfang
 
-- dunkle, moderne Oberfläche mit Kameravorschau und Aufnahme-Status
-- Videoaufnahme mit 3-Minuten-Segmenten in FHD, wenn das Gerät dies unterstützt
-- Clips lokal speichern, abspielen, schützen und löschen
-- Schleifen-Speicherverwaltung: bis zu 10 GB für Aufnahmen, mindestens 1 GB Speicherreserve; geschützte Clips werden übersprungen
-- Audio und GPS sind nicht aktiviert
+- dunkle, minimalistische Oberfläche mit Kameravorschau und Aufnahmestatus
+- Hintergrundaufnahme mit Schleifen-Segmenten, Qualitätswahl, HEVC und optionalem Ton
+- Clips lokal speichern, abspielen, teilen, schützen und löschen
+- Speicherverwaltung mit Aufbewahrungsdauer, Speicherlimit und Schutz vor Überschreiben
+- G-Sensor-Erkennung mit optionaler Ereignisaufnahme und geschützten Notfall-Clips
+- optionales GPS-Geschwindigkeits-Overlay in Vorschau und Video
+- Autostart, Startschutz, Berechtigungsübersicht und G-Sensor-Test
 
-Die Aufnahme wird in dieser ersten Version an die sichtbare App und deren Kamera-Lifecycle gebunden. Aufnahme bei ausgeschaltetem Display und eine dauerhafte Benachrichtigung benötigen als nächsten Schritt einen Kamera-Foreground-Service und Tests auf Zielgeräten.
+Alle Aufnahmen bleiben lokal auf dem Gerät. Es werden keine Routen oder Standortverläufe gespeichert.
 
 ## Build
 
-Projekt in Android Studio öffnen und mit einem installierten Android SDK (API 35) synchronisieren. Voraussetzung ist ein JDK, das von der verwendeten Android-Gradle-Plugin-Version unterstützt wird. Die Mindestversion der App ist Android 10 (API 29).
+Projekt in Android Studio öffnen und mit einem installierten Android SDK (API 35/36) synchronisieren. Voraussetzung ist ein JDK, das von der verwendeten Android-Gradle-Plugin-Version unterstützt wird.
+
+Release-Builds werden über eine lokale, nicht eingecheckte `keystore.properties` signiert. Ohne diese Datei lässt sich die App weiterhin als Debug-Build bauen.
