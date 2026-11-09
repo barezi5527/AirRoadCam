@@ -29,7 +29,8 @@ class SettingsStore(context: Context) {
             gSensorSensitivity = GSensorSensitivity.entries
                 .firstOrNull { it.name == prefs.getString("gSensorSensitivity", null) }
                 ?: defaults.gSensorSensitivity,
-            keepScreenOn = prefs.getBoolean("keepScreenOn", defaults.keepScreenOn)
+            keepScreenOn = prefs.getBoolean("keepScreenOn", defaults.keepScreenOn),
+            darkTheme = prefs.getBoolean("darkTheme", defaults.darkTheme)
         )
     }
 
@@ -50,6 +51,7 @@ class SettingsStore(context: Context) {
             .putBoolean("gSensorEnabled", settings.gSensorEnabled)
             .putString("gSensorSensitivity", settings.gSensorSensitivity.name)
             .putBoolean("keepScreenOn", settings.keepScreenOn)
+            .putBoolean("darkTheme", settings.darkTheme)
             .apply()
     }
 }

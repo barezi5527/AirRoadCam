@@ -8,6 +8,8 @@
     <string name="status_ready">BEREIT</string>
     <string name="help_open">Hilfe zur Oberfläche</string>
     <string name="menu_open">Menü öffnen</string>
+    <string name="theme_switch_to_light">Helles Design aktivieren</string>
+    <string name="theme_switch_to_dark">Dunkles Design aktivieren</string>
     <string name="menu_title">Menü</string>
     <string name="menu_permissions">Berechtigungen &amp; Hintergrund</string>
     <string name="menu_permissions_hint">Status prüfen und Akku-Optimierung deaktivieren</string>
@@ -140,13 +142,13 @@
         <item>Hinweis</item>
     </string-array>
     <string-array name="help_bodies">
-        <item>Logo und App-Name links. Die Pille rechts zeigt den Status: grüner Punkt „BEREIT“, roter Punkt „LIVE“ während der Aufnahme.</item>
+        <item>Logo und App-Name links. Die Pille rechts zeigt den Status: grüner Punkt „BEREIT“, roter Punkt „LIVE“ während der Aufnahme. Rechts neben dem Menü wechselt das Sonnen-/Mond-Symbol zwischen dunklem und hellem Design.</item>
         <item>Oben links steht „KAMERA AKTIV“ bzw. „AUFNAHME“ mit rotem Punkt. Oben rechts wechselt das Kamera-Symbol zwischen Front- und Rückkamera – nur wenn beide vorhanden sind und nicht aufgenommen wird. Unten rechts zeigt das Badge Auflösung und Bildrate, z. B. „1080p · 30 FPS“.</item>
         <item>Der große Button startet und beendet die Aufnahme. Das Schild daneben schützt den Clip: während der Aufnahme das laufende Segment, sonst die neueste Aufnahme. Geschützte Clips werden bei der automatischen Speicherbereinigung nie gelöscht. Mint = geschützt, erneut tippen hebt den Schutz auf.</item>
         <item>„AUFNAHMEMODUS“ öffnet Clip-Länge, Qualität, Aufbewahrung, Speicherlimit, Segment-Überlappung, HEVC und Ton. Außerdem lassen sich Schutz beim Start, Autostart, Ereignisaufnahme, GPS-Geschwindigkeit, automatisches Löschen alter Clips und der wachbleibende Bildschirm einstellen. Der Autostart beginnt beim Öffnen der App oder bei Stromzufuhr; die Ereignisaufnahme startet bei Erschütterung automatisch einen geschützten 60-s-Clip. GPS blendet die Geschwindigkeit in km/h in Vorschau und Aufnahme ein. Während einer Aufnahme ist die Karte gesperrt.</item>
         <item>Play öffnet den Clip im Video-Player. Das Schloss schützt oder entsperrt einen gespeicherten Clip. Über das Teilen-Symbol lassen sich einzelne Clips oder alle Aufnahmen weitergeben. Ungeschützte Clips entfernt „Löschen“ nach einer Bestätigung endgültig.</item>
         <item>Die Aufnahme läuft über einen Vordergrunddienst weiter, wenn die App im Hintergrund ist oder das Display ausgeht. Eine dauerhafte Benachrichtigung zeigt den Zustand und bietet einen Stopp-Button. Audio ist standardmäßig aus und benötigt die Mikrofonberechtigung. Der G-Sensor erkennt starke Erschütterungen und schützt den laufenden Clip automatisch vor dem Überschreiben.</item>
-        <item>Aufnahmen bleiben lokal auf dem Gerät. GPS ist deaktiviert. Beachte die rechtlichen Regeln für dauerhafte Aufzeichnungen im öffentlichen Verkehr.</item>
+        <item>Aufnahmen bleiben lokal auf dem Gerät. GPS und Audio sind optional. Beachte die rechtlichen Regeln für dauerhafte Aufzeichnungen im öffentlichen Verkehr.</item>
     </string-array>
 
     <string name="status_preparing">Kamera wird vorbereitet</string>

@@ -15,7 +15,8 @@ data class DashcamSettings(
     val gpsSpeedEnabled: Boolean = false,
     val gSensorEnabled: Boolean = true,
     val gSensorSensitivity: GSensorSensitivity = GSensorSensitivity.MITTEL,
-    val keepScreenOn: Boolean = true
+    val keepScreenOn: Boolean = true,
+    val darkTheme: Boolean = true
 ) {
     val segmentLengthMs: Long get() = clipMinutes * 60L * 1000L
     val storageLimitBytes: Long get() = storageLimitGb * 1024L * 1024L * 1024L

@@ -53,7 +53,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Menu
@@ -79,6 +81,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -108,23 +111,44 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val Ink = Color(0xFF0B1017)
-private val Panel = Color(0xFF151D27)
-private val Muted = Color(0xFF9AA7B5)
-private val Mint = Color(0xFF56E0B2)
-private val Alert = Color(0xFFFF5B64)
+private val Panel: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surface
+
+private val Elevated: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.surfaceVariant
+
+private val OnPanel: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onSurface
+
+private val Muted: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.onSurfaceVariant
+
+private val Mint: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.primary
+
+private val Alert: Color
+    @Composable
+    @ReadOnlyComposable
+    get() = MaterialTheme.colorScheme.error
 
 class MainActivity : ComponentActivity() {
     private val viewModel: DashcamViewModel by viewModels()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = android.graphics.Color.rgb(11, 16, 23)
-        window.navigationBarColor = android.graphics.Color.rgb(11, 16, 23)
-        window.decorView.systemUiVisibility = 0
         setContent {
-            MaterialTheme {
-                val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val state by viewModel.uiState.collectAsStateWithLifecycle()
+            RoadCamTheme(darkTheme = state.settings.darkTheme) {
                 val context = LocalContext.current
                 var hasCameraPermission by remember {
                     mutableStateOf(hasPermission(context, Manifest.permission.CAMERA))
@@ -214,7 +238,7 @@ class MainActivity : ComponentActivity() {
 
                 Surface(
                     modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
-                    color = Ink
+                    color = MaterialTheme.colorScheme.background
                 ) {
                     DashcamHome(
                         state = state,
@@ -336,36 +360,48 @@ private fun DashcamHome(
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
         item {
-            Box(Modifier.fillMaxWidth()) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        modifier = Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
-                            .background(Mint.copy(alpha = .14f)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(Icons.Filled.Videocam, contentDescription = null, tint = Mint, modifier = Modifier.size(24.dp))
-                    }
-                    Spacer(Modifier.width(12.dp))
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(stringResource(R.string.header_title), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
-                        Text(stringResource(R.string.header_subtitle), color = Muted, fontSize = 10.sp, letterSpacing = 1.7.sp)
-                    }
-                    Surface(shape = CircleShape, color = Panel) {
-                        Row(Modifier.padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Box(Modifier.size(7.dp).clip(CircleShape).background(if (recording) Alert else Mint))
-                            Spacer(Modifier.width(7.dp))
-                            Text(
-                                stringResource(if (recording) R.string.status_live else R.string.status_ready),
-                                color = Color.White, fontSize = 11.sp, fontWeight = FontWeight.Bold
-                            )
-                        }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier.size(42.dp).clip(RoundedCornerShape(14.dp))
+                        .background(Mint.copy(alpha = .14f)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(Icons.Filled.Videocam, contentDescription = null, tint = Mint, modifier = Modifier.size(24.dp))
+                }
+                Spacer(Modifier.width(12.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(stringResource(R.string.header_title), color = OnPanel, fontSize = 18.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
+                    Text(stringResource(R.string.header_subtitle), color = Muted, fontSize = 10.sp, letterSpacing = 1.7.sp)
+                }
+                Surface(shape = CircleShape, color = Panel) {
+                    Row(Modifier.padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Box(Modifier.size(7.dp).clip(CircleShape).background(if (recording) Alert else Mint))
+                        Spacer(Modifier.width(7.dp))
+                        Text(
+                            stringResource(if (recording) R.string.status_live else R.string.status_ready),
+                            color = OnPanel, fontSize = 11.sp, fontWeight = FontWeight.Bold
+                        )
                     }
                 }
+                Spacer(Modifier.width(4.dp))
                 IconButton(
                     onClick = { showMenu = true },
-                    modifier = Modifier.align(Alignment.Center).size(40.dp)
+                    modifier = Modifier.size(40.dp)
                 ) {
                     Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.menu_open), tint = Muted, modifier = Modifier.size(22.dp))
+                }
+                IconButton(
+                    onClick = { onApplyMode(settings.copy(darkTheme = !settings.darkTheme)) },
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        if (settings.darkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                        contentDescription = stringResource(
+                            if (settings.darkTheme) R.string.theme_switch_to_light else R.string.theme_switch_to_dark
+                        ),
+                        tint = Muted,
+                        modifier = Modifier.size(22.dp)
+                    )
                 }
             }
         }
@@ -381,13 +417,13 @@ private fun DashcamHome(
                         CameraPreview(onPreviewSurface, Modifier.fillMaxSize())
                     } else {
                         Column(
-                            Modifier.fillMaxSize().background(Color(0xFF111820)),
+                            Modifier.fillMaxSize().background(Elevated),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(Icons.Filled.Videocam, contentDescription = null, tint = Muted, modifier = Modifier.size(38.dp))
                             Spacer(Modifier.height(10.dp))
-                            Text(stringResource(R.string.camera_permission_required), color = Color.White, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.camera_permission_required), color = OnPanel, fontWeight = FontWeight.SemiBold)
                             TextButton(onClick = onRequestCameraPermission) {
                                 Text(stringResource(R.string.camera_permission_grant), color = Mint)
                             }
@@ -445,15 +481,15 @@ private fun DashcamHome(
                     modifier = Modifier.weight(1f).height(58.dp),
                     shape = RoundedCornerShape(18.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (recording) Color(0xFF38232A) else Mint,
-                        contentColor = if (recording) Alert else Ink,
-                        disabledContainerColor = Panel
+                        containerColor = if (recording) MaterialTheme.colorScheme.errorContainer else Mint,
+                        contentColor = if (recording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = Elevated
                     )
                 ) {
                     if (!state.cameraReady && hasCameraPermission) {
                         CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp, color = Mint)
                     } else {
-                        Box(Modifier.size(12.dp).clip(CircleShape).background(if (recording) Alert else Ink))
+                        Box(Modifier.size(12.dp).clip(CircleShape).background(if (recording) Alert else MaterialTheme.colorScheme.onPrimary))
                     }
                     Spacer(Modifier.width(10.dp))
                     Text(
@@ -470,7 +506,7 @@ private fun DashcamHome(
                         Icon(
                             Icons.Filled.Shield,
                             contentDescription = stringResource(R.string.protect_current),
-                            tint = if (state.currentProtected) Mint else Color.White,
+                            tint = if (state.currentProtected) Mint else OnPanel,
                             modifier = Modifier.size(23.dp)
                         )
                     }
@@ -503,7 +539,7 @@ private fun DashcamHome(
         item {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
-                    Text(stringResource(R.string.clips_title), color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.clips_title), color = OnPanel, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Text(stringResource(R.string.clips_subtitle), color = Muted, fontSize = 12.sp)
                 }
                 Icon(
@@ -521,7 +557,7 @@ private fun DashcamHome(
                         Icon(Icons.Filled.Videocam, null, tint = Muted)
                         Spacer(Modifier.width(12.dp))
                         Column {
-                            Text(stringResource(R.string.clips_empty_title), color = Color.White, fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.clips_empty_title), color = OnPanel, fontWeight = FontWeight.SemiBold)
                             Text(stringResource(R.string.clips_empty_body), color = Muted, fontSize = 12.sp)
                         }
                     }
@@ -549,7 +585,7 @@ private fun DashcamHome(
         AlertDialog(
             onDismissRequest = { clipToDelete = null },
             containerColor = Panel,
-            titleContentColor = Color.White,
+            titleContentColor = OnPanel,
             textContentColor = Muted,
             title = { Text(stringResource(if (isProtected) R.string.dialog_protected_title else R.string.dialog_delete_title)) },
             text = {
@@ -577,7 +613,7 @@ private fun DashcamHome(
         AlertDialog(
             onDismissRequest = { showModeDialog = false },
             containerColor = Panel,
-            titleContentColor = Color.White,
+            titleContentColor = OnPanel,
             textContentColor = Muted,
             title = { Text(stringResource(R.string.mode_title)) },
             text = {
@@ -625,7 +661,7 @@ private fun DashcamHome(
                         onSelect = { draft = draft.copy(overlapSeconds = it) }
                     )
                     Spacer(Modifier.height(16.dp))
-                    Text(stringResource(R.string.mode_automatic), color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+                    Text(stringResource(R.string.mode_automatic), color = OnPanel, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
                     SwitchRow(
                         stringResource(R.string.mode_protect_start),
                         stringResource(R.string.mode_protect_start_hint),
@@ -719,14 +755,14 @@ private fun DashcamHome(
         AlertDialog(
             onDismissRequest = { showHelp = false },
             containerColor = Panel,
-            titleContentColor = Color.White,
+            titleContentColor = OnPanel,
             textContentColor = Muted,
             title = { Text(stringResource(R.string.help_title)) },
             text = {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     titles.forEachIndexed { index, title ->
                         if (index > 0) Spacer(Modifier.height(14.dp))
-                        Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text(title, color = OnPanel, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
                         Spacer(Modifier.height(4.dp))
                         Text(bodies.getOrElse(index) { "" }, color = Muted, fontSize = 12.sp)
                     }
@@ -742,7 +778,7 @@ private fun DashcamHome(
         AlertDialog(
             onDismissRequest = { showMenu = false },
             containerColor = Panel,
-            titleContentColor = Color.White,
+            titleContentColor = OnPanel,
             textContentColor = Muted,
             title = { Text(stringResource(R.string.menu_title)) },
             text = {
@@ -823,14 +859,14 @@ private fun MenuItemRow(
     ) {
         Box(
             modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF202B37)),
+                .background(Elevated),
             contentAlignment = Alignment.Center
         ) {
             Icon(icon, contentDescription = null, tint = Mint, modifier = Modifier.size(20.dp))
         }
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(title, color = OnPanel, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
             Text(subtitle, color = Muted, fontSize = 11.sp)
         }
     }
@@ -868,7 +904,7 @@ private fun PermissionsDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Panel,
-        titleContentColor = Color.White,
+        titleContentColor = OnPanel,
         textContentColor = Muted,
         title = { Text(stringResource(R.string.permissions_title)) },
         text = {
@@ -917,7 +953,7 @@ private fun PermissionsDialog(
                 Spacer(Modifier.height(12.dp))
                 Text(
                     stringResource(R.string.permissions_autostart_title),
-                    color = Color.White,
+                    color = OnPanel,
                     fontWeight = FontWeight.SemiBold,
                     fontSize = 13.sp
                 )
@@ -957,7 +993,7 @@ private fun PermissionStatusRow(
         )
         Spacer(Modifier.width(10.dp))
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.sp)
+            Text(title, color = OnPanel, fontSize = 14.sp)
             Text(subtitle, color = Muted, fontSize = 11.sp)
         }
         if (action != null) {
@@ -1019,7 +1055,7 @@ private fun SensorTestDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         containerColor = Panel,
-        titleContentColor = Color.White,
+        titleContentColor = OnPanel,
         textContentColor = Muted,
         title = { Text(stringResource(R.string.sensor_test_title)) },
         text = {
@@ -1031,7 +1067,7 @@ private fun SensorTestDialog(
                     Spacer(Modifier.height(14.dp))
                     Text(
                         stringResource(R.string.sensor_test_current, currentG),
-                        color = if (triggered) Alert else Color.White,
+                        color = if (triggered) Alert else OnPanel,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Black
                     )
@@ -1044,7 +1080,7 @@ private fun SensorTestDialog(
                     val fraction = (currentG / (sensitivity.thresholdG * 1.6f)).coerceIn(0f, 1f)
                     Box(
                         Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))
-                            .background(Color(0xFF202B37))
+                            .background(Elevated)
                     ) {
                         Box(
                             Modifier.fillMaxWidth(fraction).fillMaxHeight()
@@ -1104,7 +1140,7 @@ private fun <T> ChoiceRow(
     onSelect: (T) -> Unit
 ) {
     Column {
-        Text(title, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        Text(title, color = OnPanel, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
         Spacer(Modifier.height(6.dp))
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -1117,11 +1153,11 @@ private fun <T> ChoiceRow(
                         .clip(RoundedCornerShape(9.dp))
                         .clickable { onSelect(option) },
                     shape = RoundedCornerShape(9.dp),
-                    color = if (isSelected) Mint.copy(alpha = .18f) else Color(0xFF202B37)
+                    color = if (isSelected) Mint.copy(alpha = .18f) else Elevated
                 ) {
                     Text(
                         label(option),
-                        color = if (isSelected) Mint else Color.White,
+                        color = if (isSelected) Mint else OnPanel,
                         fontSize = 12.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                         modifier = Modifier.padding(horizontal = 11.dp, vertical = 7.dp)
@@ -1143,7 +1179,7 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onCheck
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(Modifier.weight(1f)) {
-            Text(title, color = Color.White, fontSize = 14.sp)
+            Text(title, color = OnPanel, fontSize = 14.sp)
             Text(subtitle, color = Muted, fontSize = 11.sp)
         }
         Spacer(Modifier.width(10.dp))
@@ -1151,10 +1187,10 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onCheck
             checked = checked,
             onCheckedChange = onCheckedChange,
             colors = SwitchDefaults.colors(
-                checkedThumbColor = Ink,
+                checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
                 checkedTrackColor = Mint,
                 uncheckedThumbColor = Muted,
-                uncheckedTrackColor = Panel
+                uncheckedTrackColor = Elevated
             )
         )
     }
@@ -1203,7 +1239,7 @@ private fun MetricCard(
                 }
             }
             Spacer(Modifier.height(7.dp))
-            Text(value, color = Color.White, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(value, color = OnPanel, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(detail, color = Muted, fontSize = 11.sp)
         }
     }
@@ -1223,14 +1259,14 @@ private fun ClipRow(
     Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = Panel)) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 13.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(
-                Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Color(0xFF202B37)).clickable { onPlay(clip) },
+                Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Elevated).clickable { onPlay(clip) },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.clip_play), tint = Mint)
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(date, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+                Text(date, color = OnPanel, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                 Text(Formatter.formatShortFileSize(LocalContext.current, clip.file.length()), color = Muted, fontSize = 11.sp)
             }
             if (clip.shockProtected) {

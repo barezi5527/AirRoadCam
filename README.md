@@ -10,7 +10,7 @@ Voraussetzung: Android 10 (API 29) oder neuer. Zum Installieren die APK öffnen 
 
 ## Aktueller Umfang
 
-- dunkle, minimalistische Oberfläche mit Kameravorschau und Aufnahmestatus
+- minimalistische Oberfläche mit Kameravorschau, Aufnahmestatus und Umschalter für dunkles/helles Design
 - Hintergrundaufnahme mit Schleifen-Segmenten, Qualitätswahl, HEVC und optionalem Ton
 - Clips lokal speichern, abspielen, teilen, schützen und löschen
 - Speicherverwaltung mit Aufbewahrungsdauer, Speicherlimit und Schutz vor Überschreiben
