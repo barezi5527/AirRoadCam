@@ -17,8 +17,10 @@ import android.os.PowerManager
 import android.provider.Settings
 import android.text.format.Formatter
 import androidx.activity.ComponentActivity
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
 import androidx.camera.core.CameraSelector
@@ -146,6 +148,16 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        enableEdgeToEdge(
+            statusBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            ),
+            navigationBarStyle = SystemBarStyle.auto(
+                android.graphics.Color.TRANSPARENT,
+                android.graphics.Color.TRANSPARENT
+            )
+        )
         setContent {
             val state by viewModel.uiState.collectAsStateWithLifecycle()
             RoadCamTheme(darkTheme = state.settings.darkTheme) {
@@ -237,43 +249,45 @@ class MainActivity : ComponentActivity() {
                 }
 
                 Surface(
-                    modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
+                    modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    DashcamHome(
-                        state = state,
-                        hasCameraPermission = hasCameraPermission,
-                        hasAudioPermission = hasAudioPermission,
-                        hasNotificationPermission = hasNotificationPermission,
-                        hasLocationPermission = hasLocationPermission,
-                        onRequestCameraPermission = {
-                            permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
-                        },
-                        onRequestAudioPermission = {
-                            audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
-                        },
-                        onRequestNotificationPermission = {
-                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
-                        },
-                        onRequestLocationPermission = {
-                            locationLauncher.launch(
-                                arrayOf(
-                                    Manifest.permission.ACCESS_FINE_LOCATION,
-                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                        DashcamHome(
+                            state = state,
+                            hasCameraPermission = hasCameraPermission,
+                            hasAudioPermission = hasAudioPermission,
+                            hasNotificationPermission = hasNotificationPermission,
+                            hasLocationPermission = hasLocationPermission,
+                            onRequestCameraPermission = {
+                                permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
+                            },
+                            onRequestAudioPermission = {
+                                audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                            },
+                            onRequestNotificationPermission = {
+                                notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                            },
+                            onRequestLocationPermission = {
+                                locationLauncher.launch(
+                                    arrayOf(
+                                        Manifest.permission.ACCESS_FINE_LOCATION,
+                                        Manifest.permission.ACCESS_COARSE_LOCATION
+                                    )
                                 )
-                            )
-                        },
-                        onPreviewSurface = viewModel::setPreviewSurfaceProvider,
-                        onApplyMode = viewModel::applySettings,
-                        onSwitchCamera = viewModel::switchCamera,
-                        onToggleRecording = viewModel::toggleRecording,
-                        onProtectCurrent = viewModel::toggleCurrentProtection,
-                        onToggleClipProtection = viewModel::toggleClipProtection,
-                        onDeleteClip = viewModel::deleteClip,
-                        onPlayClip = viewModel::playClip,
-                        onShareClip = viewModel::shareClip,
-                        onShareAllClips = { viewModel.shareClips(state.clips) }
-                    )
+                            },
+                            onPreviewSurface = viewModel::setPreviewSurfaceProvider,
+                            onApplyMode = viewModel::applySettings,
+                            onSwitchCamera = viewModel::switchCamera,
+                            onToggleRecording = viewModel::toggleRecording,
+                            onProtectCurrent = viewModel::toggleCurrentProtection,
+                            onToggleClipProtection = viewModel::toggleClipProtection,
+                            onDeleteClip = viewModel::deleteClip,
+                            onPlayClip = viewModel::playClip,
+                            onShareClip = viewModel::shareClip,
+                            onShareAllClips = { viewModel.shareClips(state.clips) }
+                        )
+                    }
                 }
             }
         }
