@@ -136,7 +136,7 @@ class DashcamViewModel(application: Application) : AndroidViewModel(application)
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", clip.file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
             setDataAndType(uri, "video/mp4")
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         runCatching { context.startActivity(intent) }
     }
