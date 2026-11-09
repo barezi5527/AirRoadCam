@@ -9,19 +9,34 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
+import android.graphics.Canvas
+import android.graphics.Color
+import android.graphics.Paint
+import android.graphics.PorterDuff
+import android.graphics.RectF
+import android.graphics.Typeface
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.location.Location
+import android.location.LocationListener
+import android.location.LocationManager
 import android.media.MediaFormat
 import android.os.Build
+import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
+import android.util.Log
+import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.MirrorMode
 import androidx.camera.core.Preview
+import androidx.camera.core.UseCaseGroup
+import androidx.camera.effects.Frame
+import androidx.camera.effects.OverlayEffect
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.ExperimentalMimeTypeApi
 import androidx.camera.video.FallbackStrategy
@@ -58,6 +73,7 @@ class RecordingService : LifecycleService() {
         private const val CHANNEL_ID = "roadcam_recording"
         private const val NOTIFICATION_ID = 42
         private const val EVENT_RECORDING_MS = 60_000L
+        private const val TAG = "RecordingService"
 
         fun start(context: Context) {
             val intent = Intent(context, RecordingService::class.java).setAction(ACTION_START)
@@ -100,6 +116,21 @@ class RecordingService : LifecycleService() {
     private var shockSensor: Sensor? = null
     private var shockDetector: ShockDetector? = null
 
+    private var overlayEffect: OverlayEffect? = null
+    private val speedTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = Typeface.DEFAULT_BOLD
+        color = Color.WHITE
+    }
+    private val speedBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        color = Color.argb(150, 0, 0, 0)
+    }
+
+    private var locationManager: LocationManager? = null
+    private var locationListener: LocationListener? = null
+    private var locationProvider: String? = null
+    @Volatile
+    private var speedKmh: Float? = null
+
     private val shockListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
             if (event.sensor != shockSensor) return
@@ -136,6 +167,7 @@ class RecordingService : LifecycleService() {
         updateState { it.copy(settings = settings, status = UiText(R.string.status_preparing)) }
         bindCamera()
         updateShockMonitoring()
+        updateLocationUpdates()
     }
 
     override fun onBind(intent: Intent): android.os.IBinder {
@@ -168,8 +200,11 @@ class RecordingService : LifecycleService() {
         mainHandler.removeCallbacks(eventStopTimer)
         activeRecording?.stop()
         stopShockMonitoring()
+        stopLocationUpdates()
         releaseWakeLock()
         cameraProvider?.unbindAll()
+        overlayEffect?.close()
+        overlayEffect = null
         overlapExecutor.shutdown()
         super.onDestroy()
     }
@@ -184,16 +219,20 @@ class RecordingService : LifecycleService() {
         this.settings = settings
         settingsStore.save(settings)
         updateState { it.copy(settings = settings) }
-        if (settings.audioEnabled != previous.audioEnabled) {
+        if (settings.audioEnabled != previous.audioEnabled ||
+            settings.gpsSpeedEnabled != previous.gpsSpeedEnabled
+        ) {
             startForegroundWithType()
         }
         val needsCameraRebind = !recordingRequested && (
             settings.quality != previous.quality ||
-                settings.hevcEnabled != previous.hevcEnabled
+                settings.hevcEnabled != previous.hevcEnabled ||
+                settings.gpsSpeedEnabled != previous.gpsSpeedEnabled
             )
         if (needsCameraRebind) {
             bindCamera()
         }
+        updateLocationUpdates()
         if (settings.gSensorEnabled != previous.gSensorEnabled ||
             settings.gSensorSensitivity != previous.gSensorSensitivity ||
             settings.eventRecordingEnabled != previous.eventRecordingEnabled
@@ -469,8 +508,28 @@ class RecordingService : LifecycleService() {
         }
 
         val capture = VideoCapture.withOutput(recorderBuilder.build())
+        val useCaseGroup = UseCaseGroup.Builder()
+            .addUseCase(previewUseCase)
+            .addUseCase(capture)
+
+        overlayEffect?.close()
+        overlayEffect = null
+        if (settings.gpsSpeedEnabled) {
+            val effect = OverlayEffect(
+                CameraEffect.PREVIEW or CameraEffect.VIDEO_CAPTURE,
+                0,
+                mainHandler
+            ) { error -> Log.e(TAG, "Speed overlay failed", error) }
+            effect.setOnDrawListener { frame ->
+                drawSpeedOverlay(frame)
+                true
+            }
+            overlayEffect = effect
+            useCaseGroup.addEffect(effect)
+        }
+
         provider.unbindAll()
-        provider.bindToLifecycle(this, selector, previewUseCase, capture)
+        provider.bindToLifecycle(this, selector, useCaseGroup.build())
 
         preview = previewUseCase
         videoCapture = capture
@@ -514,6 +573,140 @@ class RecordingService : LifecycleService() {
         shockSensor = null
         shockDetector = null
     }
+
+    private fun drawSpeedOverlay(frame: Frame) {
+        val speed = speedKmh
+        val text = if (speed != null) {
+            getString(R.string.speed_overlay_kmh, speed)
+        } else {
+            getString(R.string.speed_no_fix)
+        }
+
+        val canvas: Canvas = frame.overlayCanvas
+        canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+
+        val crop = frame.cropRect
+        val rotation = frame.rotationDegrees
+        val rotated = rotation == 90 || rotation == 270
+        val displayWidth = if (rotated) crop.height() else crop.width()
+        val displayHeight = if (rotated) crop.width() else crop.height()
+        if (displayWidth <= 0 || displayHeight <= 0) return
+
+        canvas.save()
+        when (rotation) {
+            90 -> {
+                canvas.translate(crop.left.toFloat(), (crop.top + crop.height()).toFloat())
+                canvas.rotate(-90f)
+            }
+            180 -> {
+                canvas.translate(
+                    (crop.left + crop.width()).toFloat(),
+                    (crop.top + crop.height()).toFloat()
+                )
+                canvas.rotate(180f)
+            }
+            270 -> {
+                canvas.translate((crop.left + crop.width()).toFloat(), crop.top.toFloat())
+                canvas.rotate(90f)
+            }
+            else -> canvas.translate(crop.left.toFloat(), crop.top.toFloat())
+        }
+
+        val textSize = (displayHeight * 0.045f).coerceAtLeast(24f)
+        speedTextPaint.textSize = textSize
+        speedTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
+
+        val margin = (displayWidth * 0.035f).coerceAtLeast(16f)
+        val x = margin
+        val baseline = displayHeight - margin - speedTextPaint.descent()
+        val pad = textSize * 0.30f
+        val textWidth = speedTextPaint.measureText(text)
+        val background = RectF(
+            x - pad,
+            baseline + speedTextPaint.ascent() - pad,
+            x + textWidth + pad,
+            baseline + speedTextPaint.descent() + pad
+        )
+        canvas.drawRoundRect(background, pad, pad, speedBackgroundPaint)
+        canvas.drawText(text, x, baseline, speedTextPaint)
+        canvas.restore()
+    }
+
+    private fun updateLocationUpdates() {
+        if (!settings.gpsSpeedEnabled || !hasLocationPermission()) {
+            stopLocationUpdates()
+            return
+        }
+        if (locationListener != null) return
+        startForegroundWithType()
+        startLocationUpdates()
+    }
+
+    private fun startLocationUpdates() {
+        stopLocationUpdates()
+        val manager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return
+        val fineGranted = ContextCompat.checkSelfPermission(
+            this,
+            Manifest.permission.ACCESS_FINE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
+        val provider = when {
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.S &&
+                manager.isProviderEnabled(LocationManager.FUSED_PROVIDER) ->
+                LocationManager.FUSED_PROVIDER
+            fineGranted && manager.isProviderEnabled(LocationManager.GPS_PROVIDER) ->
+                LocationManager.GPS_PROVIDER
+            manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) ->
+                LocationManager.NETWORK_PROVIDER
+            else -> return
+        }
+        val listener = object : LocationListener {
+            override fun onLocationChanged(location: Location) {
+                speedKmh = if (location.hasSpeed()) {
+                    (location.speed * 3.6f).coerceAtLeast(0f)
+                } else {
+                    null
+                }
+            }
+
+            @Suppress("DEPRECATION")
+            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
+
+            override fun onProviderEnabled(provider: String) = Unit
+
+            override fun onProviderDisabled(provider: String) {
+                if (provider == locationProvider) speedKmh = null
+            }
+        }
+        try {
+            manager.requestLocationUpdates(provider, 1_000L, 0f, listener, Looper.getMainLooper())
+            manager.getLastKnownLocation(provider)?.let { location ->
+                if (location.hasSpeed() && System.currentTimeMillis() - location.time < 30_000L) {
+                    speedKmh = (location.speed * 3.6f).coerceAtLeast(0f)
+                }
+            }
+            locationManager = manager
+            locationListener = listener
+            locationProvider = provider
+        } catch (_: SecurityException) {
+            speedKmh = null
+        }
+    }
+
+    private fun stopLocationUpdates() {
+        locationListener?.let { listener ->
+            runCatching { locationManager?.removeUpdates(listener) }
+        }
+        locationManager = null
+        locationListener = null
+        locationProvider = null
+        speedKmh = null
+    }
+
+    private fun hasLocationPermission(): Boolean =
+        ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED ||
+            ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) ==
+            PackageManager.PERMISSION_GRANTED
 
     private fun onShockDetected(forceG: Float) {
         if (recordingRequested) {
@@ -659,6 +852,9 @@ class RecordingService : LifecycleService() {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             var value = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
             if (audioActive) value = value or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
+            if (settings.gpsSpeedEnabled && hasLocationPermission()) {
+                value = value or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
+            }
             value
         } else {
             0

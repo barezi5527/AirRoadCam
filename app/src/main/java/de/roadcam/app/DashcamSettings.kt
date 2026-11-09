@@ -12,6 +12,7 @@ data class DashcamSettings(
     val overlapSeconds: Int = 0,
     val hevcEnabled: Boolean = true,
     val audioEnabled: Boolean = false,
+    val gpsSpeedEnabled: Boolean = false,
     val gSensorEnabled: Boolean = true,
     val gSensorSensitivity: GSensorSensitivity = GSensorSensitivity.MITTEL,
     val keepScreenOn: Boolean = true

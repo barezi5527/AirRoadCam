@@ -6,7 +6,15 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.text.format.Formatter
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -27,6 +35,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -79,6 +88,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringArrayResource
@@ -89,6 +99,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import java.io.File
 import java.text.SimpleDateFormat
@@ -114,25 +127,50 @@ class MainActivity : ComponentActivity() {
                 val state by viewModel.uiState.collectAsStateWithLifecycle()
                 val context = LocalContext.current
                 var hasCameraPermission by remember {
-                    mutableStateOf(
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) ==
-                            PackageManager.PERMISSION_GRANTED
-                    )
+                    mutableStateOf(hasPermission(context, Manifest.permission.CAMERA))
                 }
                 var hasAudioPermission by remember {
-                    mutableStateOf(
-                        ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) ==
-                            PackageManager.PERMISSION_GRANTED
-                    )
+                    mutableStateOf(hasPermission(context, Manifest.permission.RECORD_AUDIO))
+                }
+                var hasNotificationPermission by remember {
+                    mutableStateOf(notificationPermissionGranted(context))
+                }
+                var hasLocationPermission by remember {
+                    mutableStateOf(locationPermissionGranted(context))
                 }
                 val permissionLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestMultiplePermissions()
                 ) { result ->
                     hasCameraPermission = result[Manifest.permission.CAMERA] == true
+                    hasNotificationPermission = notificationPermissionGranted(context)
                 }
                 val audioLauncher = rememberLauncherForActivityResult(
                     ActivityResultContracts.RequestPermission()
                 ) { granted -> hasAudioPermission = granted }
+                val notificationLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestPermission()
+                ) { granted -> hasNotificationPermission = granted }
+                val locationLauncher = rememberLauncherForActivityResult(
+                    ActivityResultContracts.RequestMultiplePermissions()
+                ) {
+                    hasLocationPermission = locationPermissionGranted(context)
+                    viewModel.refreshSettings()
+                }
+
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            hasCameraPermission = hasPermission(context, Manifest.permission.CAMERA)
+                            hasAudioPermission = hasPermission(context, Manifest.permission.RECORD_AUDIO)
+                            hasNotificationPermission = notificationPermissionGranted(context)
+                            hasLocationPermission = locationPermissionGranted(context)
+                            viewModel.refreshSettings()
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
 
                 LaunchedEffect(Unit) {
                     if (!hasCameraPermission) {
@@ -182,11 +220,24 @@ class MainActivity : ComponentActivity() {
                         state = state,
                         hasCameraPermission = hasCameraPermission,
                         hasAudioPermission = hasAudioPermission,
+                        hasNotificationPermission = hasNotificationPermission,
+                        hasLocationPermission = hasLocationPermission,
                         onRequestCameraPermission = {
                             permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
                         },
                         onRequestAudioPermission = {
                             audioLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                        },
+                        onRequestNotificationPermission = {
+                            notificationLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                        },
+                        onRequestLocationPermission = {
+                            locationLauncher.launch(
+                                arrayOf(
+                                    Manifest.permission.ACCESS_FINE_LOCATION,
+                                    Manifest.permission.ACCESS_COARSE_LOCATION
+                                )
+                            )
                         },
                         onPreviewSurface = viewModel::setPreviewSurfaceProvider,
                         onApplyMode = viewModel::applySettings,
@@ -215,6 +266,16 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+private fun hasPermission(context: Context, permission: String): Boolean =
+    ContextCompat.checkSelfPermission(context, permission) == PackageManager.PERMISSION_GRANTED
+
+private fun notificationPermissionGranted(context: Context): Boolean =
+    Build.VERSION.SDK_INT < 33 || hasPermission(context, Manifest.permission.POST_NOTIFICATIONS)
+
+private fun locationPermissionGranted(context: Context): Boolean =
+    hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ||
+        hasPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+
 @Composable
 private fun textOf(text: UiText): String =
     stringResource(text.resId, *text.args.toTypedArray())
@@ -242,8 +303,12 @@ private fun DashcamHome(
     state: DashcamUiState,
     hasCameraPermission: Boolean,
     hasAudioPermission: Boolean,
+    hasNotificationPermission: Boolean,
+    hasLocationPermission: Boolean,
     onRequestCameraPermission: () -> Unit,
     onRequestAudioPermission: () -> Unit,
+    onRequestNotificationPermission: () -> Unit,
+    onRequestLocationPermission: () -> Unit,
     onPreviewSurface: (Preview.SurfaceProvider?) -> Unit,
     onApplyMode: (DashcamSettings) -> Unit,
     onSwitchCamera: () -> Unit,
@@ -261,6 +326,9 @@ private fun DashcamHome(
     var clipToDelete by remember { mutableStateOf<DashClip?>(null) }
     var showModeDialog by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
+    var showMenu by remember { mutableStateOf(false) }
+    var showPermissions by remember { mutableStateOf(false) }
+    var showSensorTest by remember { mutableStateOf(false) }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -294,10 +362,10 @@ private fun DashcamHome(
                     }
                 }
                 IconButton(
-                    onClick = { showHelp = true },
+                    onClick = { showMenu = true },
                     modifier = Modifier.align(Alignment.Center).size(40.dp)
                 ) {
-                    Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.help_open), tint = Muted, modifier = Modifier.size(22.dp))
+                    Icon(Icons.Filled.Menu, contentDescription = stringResource(R.string.menu_open), tint = Muted, modifier = Modifier.size(22.dp))
                 }
             }
         }
@@ -588,6 +656,15 @@ private fun DashcamHome(
                         if (enabled && !hasAudioPermission) onRequestAudioPermission()
                     }
                     SwitchRow(
+                        stringResource(R.string.mode_gps_speed),
+                        if (hasLocationPermission) stringResource(R.string.mode_gps_speed_hint)
+                        else stringResource(R.string.mode_gps_permission),
+                        draft.gpsSpeedEnabled
+                    ) { enabled ->
+                        draft = draft.copy(gpsSpeedEnabled = enabled)
+                        if (enabled && !hasLocationPermission) onRequestLocationPermission()
+                    }
+                    SwitchRow(
                         stringResource(R.string.mode_gsensor),
                         stringResource(R.string.mode_gsensor_hint),
                         draft.gSensorEnabled
@@ -660,6 +737,362 @@ private fun DashcamHome(
             }
         )
     }
+
+    if (showMenu) {
+        AlertDialog(
+            onDismissRequest = { showMenu = false },
+            containerColor = Panel,
+            titleContentColor = Color.White,
+            textContentColor = Muted,
+            title = { Text(stringResource(R.string.menu_title)) },
+            text = {
+                Column {
+                    MenuItemRow(
+                        icon = Icons.Filled.Shield,
+                        title = stringResource(R.string.menu_permissions),
+                        subtitle = stringResource(R.string.menu_permissions_hint),
+                        onClick = {
+                            showMenu = false
+                            showPermissions = true
+                        }
+                    )
+                    MenuItemRow(
+                        icon = Icons.Filled.Warning,
+                        title = stringResource(R.string.menu_sensor_test),
+                        subtitle = stringResource(R.string.menu_sensor_test_hint),
+                        onClick = {
+                            showMenu = false
+                            showSensorTest = true
+                        }
+                    )
+                    MenuItemRow(
+                        icon = Icons.Filled.Menu,
+                        title = stringResource(R.string.menu_help),
+                        subtitle = stringResource(R.string.menu_help_hint),
+                        onClick = {
+                            showMenu = false
+                            showHelp = true
+                        }
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showMenu = false }) {
+                    Text(stringResource(R.string.permissions_close), color = Mint)
+                }
+            }
+        )
+    }
+
+    if (showPermissions) {
+        PermissionsDialog(
+            hasCameraPermission = hasCameraPermission,
+            hasAudioPermission = hasAudioPermission,
+            hasNotificationPermission = hasNotificationPermission,
+            hasLocationPermission = hasLocationPermission,
+            onRequestCameraPermission = onRequestCameraPermission,
+            onRequestAudioPermission = onRequestAudioPermission,
+            onRequestNotificationPermission = onRequestNotificationPermission,
+            onRequestLocationPermission = onRequestLocationPermission,
+            onDismiss = { showPermissions = false }
+        )
+    }
+
+    if (showSensorTest) {
+        SensorTestDialog(
+            sensitivity = settings.gSensorSensitivity,
+            onDismiss = { showSensorTest = false }
+        )
+    }
+}
+
+@Composable
+private fun MenuItemRow(
+    icon: ImageVector,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 4.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier.size(38.dp).clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF202B37)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(icon, contentDescription = null, tint = Mint, modifier = Modifier.size(20.dp))
+        }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+            Text(subtitle, color = Muted, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun PermissionsDialog(
+    hasCameraPermission: Boolean,
+    hasAudioPermission: Boolean,
+    hasNotificationPermission: Boolean,
+    hasLocationPermission: Boolean,
+    onRequestCameraPermission: () -> Unit,
+    onRequestAudioPermission: () -> Unit,
+    onRequestNotificationPermission: () -> Unit,
+    onRequestLocationPermission: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    val powerManager = remember { context.getSystemService(Context.POWER_SERVICE) as? PowerManager }
+    var batteryUnrestricted by remember {
+        mutableStateOf(powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true)
+    }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                batteryUnrestricted = powerManager?.isIgnoringBatteryOptimizations(context.packageName) == true
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Panel,
+        titleContentColor = Color.White,
+        textContentColor = Muted,
+        title = { Text(stringResource(R.string.permissions_title)) },
+        text = {
+            Column(Modifier.verticalScroll(rememberScrollState())) {
+                PermissionStatusRow(
+                    title = stringResource(R.string.permissions_camera),
+                    subtitle = stringResource(R.string.permissions_camera_hint),
+                    granted = hasCameraPermission,
+                    action = if (hasCameraPermission) null else stringResource(R.string.permission_grant),
+                    onAction = onRequestCameraPermission
+                )
+                PermissionStatusRow(
+                    title = stringResource(R.string.permissions_microphone),
+                    subtitle = stringResource(R.string.permissions_microphone_hint),
+                    granted = hasAudioPermission,
+                    action = if (hasAudioPermission) null else stringResource(R.string.permission_grant),
+                    onAction = onRequestAudioPermission
+                )
+                PermissionStatusRow(
+                    title = stringResource(R.string.permissions_location),
+                    subtitle = stringResource(R.string.permissions_location_hint),
+                    granted = hasLocationPermission,
+                    action = if (hasLocationPermission) null else stringResource(R.string.permission_grant),
+                    onAction = onRequestLocationPermission
+                )
+                PermissionStatusRow(
+                    title = stringResource(R.string.permissions_notifications),
+                    subtitle = stringResource(R.string.permissions_notifications_hint),
+                    granted = hasNotificationPermission,
+                    action = if (hasNotificationPermission) null else stringResource(R.string.permission_grant),
+                    onAction = onRequestNotificationPermission
+                )
+                PermissionStatusRow(
+                    title = stringResource(R.string.permissions_battery),
+                    subtitle = if (batteryUnrestricted) {
+                        stringResource(R.string.permissions_battery_ok)
+                    } else {
+                        stringResource(R.string.permissions_battery_bad)
+                    },
+                    granted = batteryUnrestricted,
+                    action = if (batteryUnrestricted) null else stringResource(R.string.permissions_battery_open),
+                    onAction = {
+                        context.startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
+                    }
+                )
+                Spacer(Modifier.height(12.dp))
+                Text(
+                    stringResource(R.string.permissions_autostart_title),
+                    color = Color.White,
+                    fontWeight = FontWeight.SemiBold,
+                    fontSize = 13.sp
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(stringResource(R.string.permissions_autostart_hint), color = Muted, fontSize = 12.sp)
+                Spacer(Modifier.height(4.dp))
+                TextButton(onClick = { openAppSettings(context) }) {
+                    Text(stringResource(R.string.permissions_app_settings), color = Mint, fontSize = 12.sp)
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.permissions_close), color = Mint)
+            }
+        }
+    )
+}
+
+@Composable
+private fun PermissionStatusRow(
+    title: String,
+    subtitle: String,
+    granted: Boolean,
+    action: String?,
+    onAction: () -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(vertical = 7.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            if (granted) Icons.Filled.CheckCircle else Icons.Filled.Warning,
+            contentDescription = null,
+            tint = if (granted) Mint else Alert,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(Modifier.width(10.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, color = Color.White, fontSize = 14.sp)
+            Text(subtitle, color = Muted, fontSize = 11.sp)
+        }
+        if (action != null) {
+            TextButton(onClick = onAction) {
+                Text(action, color = Mint, fontSize = 12.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SensorTestDialog(
+    sensitivity: GSensorSensitivity,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var currentG by remember { mutableStateOf(0f) }
+    var peakG by remember { mutableStateOf(0f) }
+    var triggered by remember { mutableStateOf(false) }
+    var available by remember { mutableStateOf(true) }
+
+    DisposableEffect(sensitivity) {
+        val manager = context.getSystemService(Context.SENSOR_SERVICE) as? SensorManager
+        val linearSensor = manager?.getDefaultSensor(Sensor.TYPE_LINEAR_ACCELERATION)
+        val sensor = linearSensor ?: manager?.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+        if (manager == null || sensor == null) {
+            available = false
+            onDispose { }
+        } else {
+            available = true
+            val detector = ShockDetector(
+                thresholdG = sensitivity.thresholdG,
+                removeGravity = linearSensor == null,
+                onSample = { force ->
+                    currentG = force
+                    if (force > peakG) peakG = force
+                    triggered = peakG >= sensitivity.thresholdG
+                },
+                onShock = {}
+            )
+            val listener = object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    if (event.sensor != sensor) return
+                    detector.onAcceleration(
+                        event.values[0],
+                        event.values[1],
+                        event.values[2],
+                        event.timestamp / 1_000_000L
+                    )
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) = Unit
+            }
+            manager.registerListener(listener, sensor, SensorManager.SENSOR_DELAY_GAME)
+            onDispose { manager.unregisterListener(listener) }
+        }
+    }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = Panel,
+        titleContentColor = Color.White,
+        textContentColor = Muted,
+        title = { Text(stringResource(R.string.sensor_test_title)) },
+        text = {
+            Column {
+                if (!available) {
+                    Text(stringResource(R.string.sensor_test_unavailable), color = Muted, fontSize = 12.sp)
+                } else {
+                    Text(stringResource(R.string.sensor_test_hint), color = Muted, fontSize = 12.sp)
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        stringResource(R.string.sensor_test_current, currentG),
+                        color = if (triggered) Alert else Color.White,
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Black
+                    )
+                    Text(
+                        stringResource(R.string.sensor_test_peak, peakG),
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                    Spacer(Modifier.height(8.dp))
+                    val fraction = (currentG / (sensitivity.thresholdG * 1.6f)).coerceIn(0f, 1f)
+                    Box(
+                        Modifier.fillMaxWidth().height(10.dp).clip(RoundedCornerShape(5.dp))
+                            .background(Color(0xFF202B37))
+                    ) {
+                        Box(
+                            Modifier.fillMaxWidth(fraction).fillMaxHeight()
+                                .background(if (triggered) Alert else Mint)
+                        )
+                    }
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        stringResource(
+                            R.string.sensor_test_threshold,
+                            gSensorLabel(sensitivity),
+                            sensitivity.thresholdG
+                        ),
+                        color = Muted,
+                        fontSize = 12.sp
+                    )
+                    TextButton(onClick = {
+                        peakG = 0f
+                        triggered = false
+                    }) {
+                        Text(stringResource(R.string.sensor_test_reset), color = Mint, fontSize = 12.sp)
+                    }
+                    if (triggered) {
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            stringResource(R.string.sensor_test_triggered),
+                            color = Alert,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.sensor_test_close), color = Mint)
+            }
+        }
+    )
+}
+
+private fun openAppSettings(context: Context) {
+    val intent = Intent(
+        Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+        Uri.fromParts("package", context.packageName, null)
+    )
+    context.startActivity(intent)
 }
 
 @Composable

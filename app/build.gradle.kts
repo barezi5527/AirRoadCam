@@ -58,6 +58,7 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:$cameraX")
     implementation("androidx.camera:camera-video:$cameraX")
     implementation("androidx.camera:camera-view:$cameraX")
+    implementation("androidx.camera:camera-effects:$cameraX")
 
     testImplementation("junit:junit:4.13.2")
 }

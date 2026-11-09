@@ -13,6 +13,7 @@ class ShockDetector(
     private val removeGravity: Boolean = true,
     private val cooldownMs: Long = 3_000L,
     private val gravityFilterAlpha: Float = 0.95f,
+    private val onSample: (Float) -> Unit = {},
     private val onShock: (Float) -> Unit
 ) {
     private val gravity = FloatArray(3)
@@ -40,6 +41,7 @@ class ShockDetector(
             linear[0] * linear[0] + linear[1] * linear[1] + linear[2] * linear[2]
         )
         val forceG = magnitude / GRAVITY
+        onSample(forceG)
         if (forceG < thresholdG) return
 
         val previous = lastShockMs

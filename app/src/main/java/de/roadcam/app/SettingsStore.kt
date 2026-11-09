@@ -24,6 +24,7 @@ class SettingsStore(context: Context) {
                 .takeIf { it in DashcamSettings.OVERLAP_SECONDS } ?: defaults.overlapSeconds,
             hevcEnabled = prefs.getBoolean("hevcEnabled", defaults.hevcEnabled),
             audioEnabled = prefs.getBoolean("audioEnabled", defaults.audioEnabled),
+            gpsSpeedEnabled = prefs.getBoolean("gpsSpeedEnabled", defaults.gpsSpeedEnabled),
             gSensorEnabled = prefs.getBoolean("gSensorEnabled", defaults.gSensorEnabled),
             gSensorSensitivity = GSensorSensitivity.entries
                 .firstOrNull { it.name == prefs.getString("gSensorSensitivity", null) }
@@ -45,6 +46,7 @@ class SettingsStore(context: Context) {
             .putInt("overlapSeconds", settings.overlapSeconds)
             .putBoolean("hevcEnabled", settings.hevcEnabled)
             .putBoolean("audioEnabled", settings.audioEnabled)
+            .putBoolean("gpsSpeedEnabled", settings.gpsSpeedEnabled)
             .putBoolean("gSensorEnabled", settings.gSensorEnabled)
             .putString("gSensorSensitivity", settings.gSensorSensitivity.name)
             .putBoolean("keepScreenOn", settings.keepScreenOn)

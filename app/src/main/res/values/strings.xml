@@ -7,6 +7,43 @@
     <string name="status_live">LIVE</string>
     <string name="status_ready">BEREIT</string>
     <string name="help_open">Hilfe zur Oberfläche</string>
+    <string name="menu_open">Menü öffnen</string>
+    <string name="menu_title">Menü</string>
+    <string name="menu_permissions">Berechtigungen &amp; Hintergrund</string>
+    <string name="menu_permissions_hint">Status prüfen und Akku-Optimierung deaktivieren</string>
+    <string name="menu_sensor_test">G-Sensor testen</string>
+    <string name="menu_sensor_test_hint">Live-Wert und Auslöseschwelle anzeigen</string>
+    <string name="menu_help">Hilfe</string>
+    <string name="menu_help_hint">Erklärung der Oberfläche</string>
+
+    <string name="permissions_title">Berechtigungen &amp; Hintergrund</string>
+    <string name="permissions_close">Schließen</string>
+    <string name="permission_grant">Erteilen</string>
+    <string name="permissions_camera">Kamera</string>
+    <string name="permissions_camera_hint">Erforderlich für Aufnahmen</string>
+    <string name="permissions_microphone">Mikrofon</string>
+    <string name="permissions_microphone_hint">Nur nötig, wenn Ton aufgenommen werden soll</string>
+    <string name="permissions_location">Standort</string>
+    <string name="permissions_location_hint">Nötig für die Geschwindigkeitsanzeige</string>
+    <string name="permissions_notifications">Benachrichtigungen</string>
+    <string name="permissions_notifications_hint">Zeigt Aufnahmestatus und Stopp-Button</string>
+    <string name="permissions_battery">Akku-Optimierung</string>
+    <string name="permissions_battery_ok">Deaktiviert – Hintergrundaufnahme ist geschützt</string>
+    <string name="permissions_battery_bad">Aktiv – das System kann die Aufnahme beenden</string>
+    <string name="permissions_battery_open">Einstellungen</string>
+    <string name="permissions_autostart_title">Autostart (MIUI/LineageOS)</string>
+    <string name="permissions_autostart_hint">Erlaube RoadCam in den Systemeinstellungen den Autostart, damit die Aufnahme zuverlässig im Hintergrund läuft.</string>
+    <string name="permissions_app_settings">App-Einstellungen öffnen</string>
+
+    <string name="sensor_test_title">G-Sensor testen</string>
+    <string name="sensor_test_hint">Bewege das Gerät, um die aktuelle Beschleunigung zu sehen.</string>
+    <string name="sensor_test_current">%1$.1f g</string>
+    <string name="sensor_test_peak">Spitze: %1$.1f g</string>
+    <string name="sensor_test_reset">Zurücksetzen</string>
+    <string name="sensor_test_threshold">Schwelle %1$s: %2$.1f g</string>
+    <string name="sensor_test_triggered">Auslösung erkannt</string>
+    <string name="sensor_test_unavailable">Kein Beschleunigungssensor gefunden.</string>
+    <string name="sensor_test_close">Schließen</string>
 
     <string name="camera_active">KAMERA AKTIV</string>
     <string name="camera_recording">AUFNAHME</string>
@@ -36,7 +73,7 @@
     <string name="clip_share">Clip teilen</string>
     <string name="clip_shock_protected">Notfallaufnahme durch Erschütterung</string>
     <string name="clip_delete">Löschen</string>
-    <string name="footer_note">Audio ist optional, GPS deaktiviert. Aufnahmen bleiben auf deinem Gerät.</string>
+    <string name="footer_note">Audio und GPS sind optional. Aufnahmen bleiben auf deinem Gerät.</string>
 
     <string name="dialog_delete_title">Clip löschen?</string>
     <string name="dialog_delete_body">Die Aufnahme wird endgültig vom Gerät entfernt.</string>
@@ -73,6 +110,11 @@
     <string name="mode_audio">Ton aufnehmen</string>
     <string name="mode_audio_hint">Mikrofon nur während der Aufnahme</string>
     <string name="mode_audio_permission">Mikrofonberechtigung erforderlich</string>
+    <string name="mode_gps_speed">GPS-Geschwindigkeit</string>
+    <string name="mode_gps_speed_hint">Geschwindigkeit in km/h in Vorschau und Aufnahme einblenden</string>
+    <string name="mode_gps_permission">Standortberechtigung erforderlich</string>
+    <string name="speed_overlay_kmh">%1$.0f km/h</string>
+    <string name="speed_no_fix">GPS –</string>
     <string name="mode_gsensor">G-Sensor (Erschütterung)</string>
     <string name="mode_gsensor_hint">Starke Erschütterungen erkennen und den laufenden Clip schützen</string>
     <string name="mode_gsensor_sensitivity">Empfindlichkeit</string>
@@ -101,7 +143,7 @@
         <item>Logo und App-Name links. Die Pille rechts zeigt den Status: grüner Punkt „BEREIT“, roter Punkt „LIVE“ während der Aufnahme.</item>
         <item>Oben links steht „KAMERA AKTIV“ bzw. „AUFNAHME“ mit rotem Punkt. Oben rechts wechselt das Kamera-Symbol zwischen Front- und Rückkamera – nur wenn beide vorhanden sind und nicht aufgenommen wird. Unten rechts zeigt das Badge Auflösung und Bildrate, z. B. „1080p · 30 FPS“.</item>
         <item>Der große Button startet und beendet die Aufnahme. Das Schild daneben schützt den Clip: während der Aufnahme das laufende Segment, sonst die neueste Aufnahme. Geschützte Clips werden bei der automatischen Speicherbereinigung nie gelöscht. Mint = geschützt, erneut tippen hebt den Schutz auf.</item>
-        <item>„AUFNAHMEMODUS“ öffnet Clip-Länge, Qualität, Aufbewahrung, Speicherlimit, Segment-Überlappung, HEVC und Ton. Außerdem lassen sich Schutz beim Start, Autostart, Ereignisaufnahme, automatisches Löschen alter Clips und der wachbleibende Bildschirm einstellen. Der Autostart beginnt beim Öffnen der App oder bei Stromzufuhr; die Ereignisaufnahme startet bei Erschütterung automatisch einen geschützten 60-s-Clip. Während einer Aufnahme ist die Karte gesperrt.</item>
+        <item>„AUFNAHMEMODUS“ öffnet Clip-Länge, Qualität, Aufbewahrung, Speicherlimit, Segment-Überlappung, HEVC und Ton. Außerdem lassen sich Schutz beim Start, Autostart, Ereignisaufnahme, GPS-Geschwindigkeit, automatisches Löschen alter Clips und der wachbleibende Bildschirm einstellen. Der Autostart beginnt beim Öffnen der App oder bei Stromzufuhr; die Ereignisaufnahme startet bei Erschütterung automatisch einen geschützten 60-s-Clip. GPS blendet die Geschwindigkeit in km/h in Vorschau und Aufnahme ein. Während einer Aufnahme ist die Karte gesperrt.</item>
         <item>Play öffnet den Clip im Video-Player. Das Schloss schützt oder entsperrt einen gespeicherten Clip. Über das Teilen-Symbol lassen sich einzelne Clips oder alle Aufnahmen weitergeben. Ungeschützte Clips entfernt „Löschen“ nach einer Bestätigung endgültig.</item>
         <item>Die Aufnahme läuft über einen Vordergrunddienst weiter, wenn die App im Hintergrund ist oder das Display ausgeht. Eine dauerhafte Benachrichtigung zeigt den Zustand und bietet einen Stopp-Button. Audio ist standardmäßig aus und benötigt die Mikrofonberechtigung. Der G-Sensor erkennt starke Erschütterungen und schützt den laufenden Clip automatisch vor dem Überschreiben.</item>
         <item>Aufnahmen bleiben lokal auf dem Gerät. GPS ist deaktiviert. Beachte die rechtlichen Regeln für dauerhafte Aufzeichnungen im öffentlichen Verkehr.</item>

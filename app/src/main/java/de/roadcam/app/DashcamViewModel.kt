@@ -115,6 +115,10 @@ class DashcamViewModel(application: Application) : AndroidViewModel(application)
         _service.value?.updateSettings(settings)
     }
 
+    fun refreshSettings() {
+        _service.value?.updateSettings(_settings.value)
+    }
+
     fun startRecording() = _service.value?.startRecording() ?: Unit
     fun stopRecording() = _service.value?.stopRecording() ?: Unit
     fun toggleRecording() {
