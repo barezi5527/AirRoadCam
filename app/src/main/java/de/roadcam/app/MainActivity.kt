@@ -34,6 +34,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -108,8 +109,11 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -451,8 +455,20 @@ private fun DashcamHome(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.header_title), color = OnPanel, fontSize = 18.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(stringResource(R.string.header_subtitle), color = Muted, fontSize = 10.sp, letterSpacing = 1.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    AutoFitText(
+                        text = stringResource(R.string.header_title),
+                        color = OnPanel,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Black,
+                        letterSpacing = 1.4.sp
+                    )
+                    AutoFitText(
+                        text = stringResource(R.string.header_subtitle),
+                        color = Muted,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Normal,
+                        letterSpacing = 1.7.sp
+                    )
                 }
                 Surface(shape = CircleShape, color = Panel) {
                     Row(Modifier.padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1602,6 +1618,44 @@ private fun OverlayIconButton(
         Box(contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(19.dp))
         }
+    }
+}
+
+@Composable
+private fun AutoFitText(
+    text: String,
+    color: Color,
+    fontSize: TextUnit,
+    fontWeight: FontWeight,
+    letterSpacing: TextUnit,
+    maxLines: Int = 1
+) {
+    BoxWithConstraints {
+        val textMeasurer = rememberTextMeasurer()
+        val measured = textMeasurer.measure(
+            text,
+            TextStyle(
+                color = color,
+                fontSize = fontSize,
+                fontWeight = fontWeight,
+                letterSpacing = letterSpacing
+            ),
+            maxLines = maxLines,
+            softWrap = false
+        )
+        val maxWidthPx = constraints.maxWidth
+        val scale = if (measured.size.width > maxWidthPx && measured.size.width > 0) {
+            maxWidthPx.toFloat() / measured.size.width
+        } else 1f
+        Text(
+            text,
+            color = color,
+            fontSize = fontSize * scale,
+            fontWeight = fontWeight,
+            letterSpacing = letterSpacing * scale,
+            maxLines = maxLines,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }
 
