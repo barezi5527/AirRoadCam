@@ -128,6 +128,7 @@ import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlinx.coroutines.delay
 
 private val Panel: Color
     @Composable
@@ -250,8 +251,15 @@ class MainActivity : ComponentActivity() {
                 }
 
                 val view = LocalView.current
-                DisposableEffect(state.settings.keepScreenOn) {
-                    view.keepScreenOn = state.settings.keepScreenOn
+                LaunchedEffect(state.settings.screenTimeoutMinutes) {
+                    val timeoutMinutes = state.settings.screenTimeoutMinutes
+                    view.keepScreenOn = true
+                    if (timeoutMinutes > 0) {
+                        delay(timeoutMinutes * 60_000L)
+                        view.keepScreenOn = false
+                    }
+                }
+                DisposableEffect(Unit) {
                     onDispose { view.keepScreenOn = false }
                 }
 
@@ -865,11 +873,26 @@ private fun DashcamHome(
                             gSensorEnabled = if (enabled) true else draft.gSensorEnabled
                         )
                     }
-                    SwitchRow(
-                        stringResource(R.string.mode_keep_screen_on),
-                        stringResource(R.string.mode_keep_screen_on_hint),
-                        draft.keepScreenOn
-                    ) { draft = draft.copy(keepScreenOn = it) }
+                    Spacer(Modifier.height(14.dp))
+                    ChoiceRow(
+                        title = stringResource(R.string.mode_display_timeout),
+                        options = DashcamSettings.SCREEN_TIMEOUT_MINUTES,
+                        selected = draft.screenTimeoutMinutes,
+                        label = {
+                            when (it) {
+                                0 -> stringResource(R.string.mode_display_timeout_always)
+                                1 -> stringResource(R.string.mode_display_timeout_minute)
+                                else -> stringResource(R.string.mode_minutes, it)
+                            }
+                        },
+                        onSelect = { draft = draft.copy(screenTimeoutMinutes = it) }
+                    )
+                    Text(
+                        stringResource(R.string.mode_display_timeout_hint),
+                        color = Muted,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(top = 6.dp)
+                    )
                 }
             },
             confirmButton = {

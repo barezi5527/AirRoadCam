@@ -2,7 +2,7 @@ package de.roadcam.app
 
 data class DashcamSettings(
     val clipMinutes: Int = 3,
-    val quality: RecordQuality = RecordQuality.AUSGEWOGEN,
+    val quality: RecordQuality = RecordQuality.SPAREND,
     val autoProtect: Boolean = false,
     val autoStartRecording: Boolean = false,
     val eventRecordingEnabled: Boolean = false,
@@ -16,7 +16,7 @@ data class DashcamSettings(
     val watermarkEnabled: Boolean = false,
     val gSensorEnabled: Boolean = true,
     val gSensorSensitivity: GSensorSensitivity = GSensorSensitivity.MITTEL_2,
-    val keepScreenOn: Boolean = true,
+    val screenTimeoutMinutes: Int = 0,
     val darkTheme: Boolean = true
 ) {
     val segmentLengthMs: Long get() = clipMinutes * 60L * 1000L
@@ -28,6 +28,7 @@ data class DashcamSettings(
         val RETENTION_DAYS = listOf(1, 3, 5, 7, 14, 30)
         val STORAGE_LIMIT_GB = listOf(2, 5, 10, 20, 32, 64)
         val OVERLAP_SECONDS = listOf(0, 1, 2)
+        val SCREEN_TIMEOUT_MINUTES = listOf(0, 1, 2, 5, 10, 15, 30)
         const val FREE_SPACE_RESERVE_BYTES = 1024L * 1024L * 1024L
         const val PHOTO_SPACE_RESERVE_BYTES = 20L * 1024L * 1024L
     }

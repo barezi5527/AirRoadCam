@@ -7,6 +7,7 @@ class SettingsStore(context: Context) {
 
     fun load(): DashcamSettings {
         val defaults = DashcamSettings()
+        val legacyKeepScreenOn = prefs.getBoolean("keepScreenOn", true)
         return DashcamSettings(
             clipMinutes = prefs.getInt("clipMinutes", defaults.clipMinutes)
                 .takeIf { it in DashcamSettings.CLIP_MINUTES } ?: defaults.clipMinutes,
@@ -29,7 +30,10 @@ class SettingsStore(context: Context) {
             gSensorEnabled = prefs.getBoolean("gSensorEnabled", defaults.gSensorEnabled),
             gSensorSensitivity = GSensorSensitivity.fromStoredName(prefs.getString("gSensorSensitivity", null))
                 ?: defaults.gSensorSensitivity,
-            keepScreenOn = prefs.getBoolean("keepScreenOn", defaults.keepScreenOn),
+            screenTimeoutMinutes = prefs.getInt(
+                "screenTimeoutMinutes",
+                if (legacyKeepScreenOn) 0 else 1
+            ).takeIf { it in DashcamSettings.SCREEN_TIMEOUT_MINUTES } ?: defaults.screenTimeoutMinutes,
             darkTheme = prefs.getBoolean("darkTheme", defaults.darkTheme)
         )
     }
@@ -51,7 +55,8 @@ class SettingsStore(context: Context) {
             .putBoolean("watermarkEnabled", settings.watermarkEnabled)
             .putBoolean("gSensorEnabled", settings.gSensorEnabled)
             .putString("gSensorSensitivity", settings.gSensorSensitivity.name)
-            .putBoolean("keepScreenOn", settings.keepScreenOn)
+            .putInt("screenTimeoutMinutes", settings.screenTimeoutMinutes)
+            .remove("keepScreenOn")
             .putBoolean("darkTheme", settings.darkTheme)
             .apply()
     }

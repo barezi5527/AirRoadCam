@@ -131,8 +131,10 @@
     <string name="mode_gsensor_info_title">Information zur G-Sensor-Empfindlichkeit</string>
     <string name="mode_gsensor_info_body">Der G-Sensor erkennt starke Erschütterungen und Beschleunigungsänderungen und kann dadurch eine automatische Notfallaufnahme auslösen.\n\n• Niedrig: Reagiert nur auf sehr starke Erschütterungen.\n• Mittel: Ausgewogene Erkennung.\n• Hoch: Reagiert bereits auf leichte Erschütterungen.\n\nJe niedriger der eingestellte g-Wert, desto empfindlicher reagiert die Unfallerkennung.\n\nHinweis: Eine zu hohe Empfindlichkeit kann Fehlalarme verursachen.</string>
     <string name="mode_gsensor_info_confirm">Verstanden</string>
-    <string name="mode_keep_screen_on">Bildschirm anlassen</string>
-    <string name="mode_keep_screen_on_hint">Display bleibt während der App-Nutzung an</string>
+    <string name="mode_display_timeout">Display-Timeout</string>
+    <string name="mode_display_timeout_hint">Display nach dieser Zeit ausschalten – die Aufnahme läuft im Hintergrund weiter</string>
+    <string name="mode_display_timeout_always">Immer an</string>
+    <string name="mode_display_timeout_minute">1 Minute</string>
 
     <string name="landscape_toggle">Querformat umschalten</string>
     <string name="landscape_gps">GPS-Geschwindigkeit</string>
@@ -154,16 +156,18 @@
         <item>Aufnahmemodus</item>
         <item>Letzte Aufnahmen</item>
         <item>Hintergrund &amp; Ton</item>
+        <item>Wärmeentwicklung</item>
         <item>Hinweis</item>
     </string-array>
     <string-array name="help_bodies">
-        <item>Logo und App-Name links. Die Pille rechts zeigt den Status: grüner Punkt „BEREIT“, roter Punkt „LIVE“ während der Aufnahme. Das Drehsymbol sperrt das Querformat, das Menü-Symbol öffnet das Menü, und das Sonnen-/Mond-Symbol wechselt zwischen dunklem und hellem Design.</item>
-        <item>Die App startet im Hochformat. Wird das Gerät gedreht, wechselt sie ins Querformat: Die Kamera füllt den Bildschirm, oben liegen Pills für Status, GPS-Geschwindigkeit und Speicherplatz, unten der Aufnahme-Button samt Status sowie Galerie-, Foto-, Einstellungs- und Schutz-Buttons. Das Drehsymbol sperrt das Querformat unabhängig von der Gerätehaltung – nochmaliges Tippen kehrt zur Sensordrehung zurück. Videos, die nach einer Drehung starten, werden automatisch im richtigen Winkel gespeichert.</item>
-        <item>Oben links steht „KAMERA AKTIV“ bzw. „AUFNAHME“ mit rotem Punkt. Oben rechts wechselt das Kamera-Symbol zwischen Front- und Rückkamera – nur wenn beide vorhanden sind und nicht aufgenommen wird. Unten rechts zeigt das Badge Auflösung und Bildrate, z. B. „1080p · 30 FPS“.</item>
+        <item>Logo und App-Name links. Rechts öffnet das Drehsymbol die Querformat-Sperre, das Menü-Symbol das Menü, und das Sonnen-/Mond-Symbol wechselt zwischen dunklem und hellem Design.</item>
+        <item>Die App startet im Hochformat. Wird das Gerät gedreht, wechselt sie ins Querformat: Die Kamera füllt den Bildschirm, oben liegen Pills für GPS-Geschwindigkeit und Speicherplatz, unten der Aufnahme-Button, die Foto-Kachel sowie Galerie-, Einstellungs- und Schutz-Buttons. Das Drehsymbol sperrt das Querformat unabhängig von der Gerätehaltung – nochmaliges Tippen kehrt zur Sensordrehung zurück. Videos, die nach einer Drehung starten, werden automatisch im richtigen Winkel gespeichert.</item>
+        <item>Oben links steht „KAMERA AKTIV“ bzw. „AUFNAHME“ mit rotem Punkt. Oben rechts wechselt das Kamera-Symbol zwischen Front- und Rückkamera – nur wenn beide vorhanden sind und nicht aufgenommen wird. Unten rechts zeigt das Badge Auflösung und Bildrate, z. B. „720p · 30 FPS“.</item>
         <item>Der große Button startet und beendet die Aufnahme. Das Schild daneben schützt die Aufnahme: während der Aufnahme das laufende Segment, sonst die neueste Aufnahme – auch Fotos. Geschützte Aufnahmen werden bei der automatischen Speicherbereinigung nie gelöscht. Mint = geschützt, erneut tippen hebt den Schutz auf. Der Foto-Button nimmt jederzeit ein Standbild auf, ohne die laufende Aufnahme zu unterbrechen; das Foto erscheint anschließend zusammen mit den Clips in der Liste und unterliegt derselben Speicherbereinigung.</item>
-        <item>„AUFNAHMEMODUS“ öffnet Clip-Länge, Qualität, Aufbewahrung, Speicherlimit, Segment-Überlappung, HEVC und Ton. Außerdem lassen sich Schutz beim Start, Autostart, Ereignisaufnahme, GPS-Geschwindigkeit, Wasserzeichen, automatisches Löschen alter Aufnahmen und der wachbleibende Bildschirm einstellen. Der Autostart beginnt beim Öffnen der App oder bei Stromzufuhr; die Ereignisaufnahme startet bei Erschütterung automatisch einen geschützten 60-s-Clip. GPS blendet die Geschwindigkeit in km/h in Vorschau und Aufnahme ein. Das Wasserzeichen brennt Datum, Uhrzeit und GPS-Koordinaten dauerhaft in Videos und Fotos ein – ohne Standortberechtigung erscheint nur Datum und Uhrzeit. Während einer Aufnahme ist die Karte gesperrt.</item>
+        <item>„AUFNAHMEMODUS“ öffnet Clip-Länge, Qualität, Aufbewahrung, Speicherlimit, Segment-Überlappung, HEVC, Ton und Display-Timeout. Außerdem lassen sich Schutz beim Start, Autostart, Ereignisaufnahme, GPS-Geschwindigkeit, Wasserzeichen und automatisches Löschen alter Aufnahmen einstellen. Standard ist 720p (Sparsam); 1080p-Modi erhöhen Detailtreue und Wärmeentwicklung. Der Autostart beginnt beim Öffnen der App oder bei Stromzufuhr; die Ereignisaufnahme startet bei Erschütterung automatisch einen geschützten 60-s-Clip. GPS blendet die Geschwindigkeit in km/h in Vorschau und Aufnahme ein. Das Wasserzeichen brennt Datum, Uhrzeit und GPS-Koordinaten dauerhaft in Videos und Fotos ein – ohne Standortberechtigung erscheint nur Datum und Uhrzeit. Während einer Aufnahme ist die Karte gesperrt.</item>
         <item>Play öffnet Clips im Video-Player und Fotos im Bildbetrachter. Das Schloss schützt oder entsperrt eine gespeicherte Aufnahme. Über das Teilen-Symbol lassen sich einzelne Aufnahmen oder alle weitergeben. Ungeschützte Aufnahmen entfernt „Löschen“ nach einer Bestätigung endgültig. Im Querformat öffnet das Galerie-Symbol die Aufnahmen als Liste.</item>
         <item>Die Aufnahme läuft über einen Vordergrunddienst weiter, wenn die App im Hintergrund ist oder das Display ausgeht. Eine dauerhafte Benachrichtigung zeigt den Zustand und bietet einen Stopp-Button. Audio ist standardmäßig aus und benötigt die Mikrofonberechtigung. Der G-Sensor erkennt starke Erschütterungen und schützt den laufenden Clip automatisch vor dem Überschreiben.</item>
+        <item>Kamera, Display und Video-Encoder erzeugen bei Dauerbetrieb Wärme. Das ist normal, kann das Gerät aber drosseln. Standard ist 720p; höhere Qualität und HEVC kosten mehr Rechenleistung. Über „Display-Timeout“ im Aufnahmemodus lässt sich das Display nach einigen Minuten abschalten, während die Aufnahme im Hintergrund weiterläuft. Vermeide direkte Sonne und gleichzeitiges Laden, wenn das Gerät sehr heiß wird.</item>
         <item>Aufnahmen bleiben lokal auf dem Gerät. GPS und Audio sind optional. Beachte die rechtlichen Regeln für dauerhafte Aufzeichnungen im öffentlichen Verkehr.</item>
     </string-array>
 
