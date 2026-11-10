@@ -438,10 +438,10 @@ class RecordingService : LifecycleService() {
 
     private fun nextFile(directory: File): File {
         val stamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss", Locale.US).format(Date())
-        var candidate = File(directory, "RoadCam_$stamp.mp4")
+        var candidate = File(directory, "AirRoadCam_$stamp.mp4")
         var suffix = 1
         while (candidate.exists()) {
-            candidate = File(directory, "RoadCam_${stamp}_$suffix.mp4")
+            candidate = File(directory, "AirRoadCam_${stamp}_$suffix.mp4")
             suffix++
         }
         return candidate
@@ -872,7 +872,7 @@ class RecordingService : LifecycleService() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         wakeLock = powerManager.newWakeLock(
             PowerManager.PARTIAL_WAKE_LOCK,
-            "RoadCam:Recording"
+            "AirRoadCam:Recording"
         ).apply {
             setReferenceCounted(false)
             acquire(12L * 60L * 60L * 1000L)

@@ -451,8 +451,8 @@ private fun DashcamHome(
                 }
                 Spacer(Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(stringResource(R.string.header_title), color = OnPanel, fontSize = 18.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp)
-                    Text(stringResource(R.string.header_subtitle), color = Muted, fontSize = 10.sp, letterSpacing = 1.7.sp)
+                    Text(stringResource(R.string.header_title), color = OnPanel, fontSize = 18.sp, fontWeight = FontWeight.Black, letterSpacing = 1.4.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(stringResource(R.string.header_subtitle), color = Muted, fontSize = 10.sp, letterSpacing = 1.7.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Surface(shape = CircleShape, color = Panel) {
                     Row(Modifier.padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {

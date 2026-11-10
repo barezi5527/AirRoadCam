@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">RoadCam</string>
+    <string name="app_name">Air-RoadCam</string>
 
-    <string name="header_title">ROADCAM</string>
+    <string name="header_title">AIR-ROADCAM</string>
     <string name="header_subtitle">FAHRTSICHERHEIT</string>
     <string name="status_live">LIVE</string>
     <string name="status_ready">BEREIT</string>
@@ -34,7 +34,7 @@
     <string name="permissions_battery_bad">Aktiv – das System kann die Aufnahme beenden</string>
     <string name="permissions_battery_open">Einstellungen</string>
     <string name="permissions_autostart_title">Autostart (MIUI/LineageOS)</string>
-    <string name="permissions_autostart_hint">Erlaube RoadCam in den Systemeinstellungen den Autostart, damit die Aufnahme zuverlässig im Hintergrund läuft.</string>
+    <string name="permissions_autostart_hint">Erlaube Air-RoadCam in den Systemeinstellungen den Autostart, damit die Aufnahme zuverlässig im Hintergrund läuft.</string>
     <string name="permissions_app_settings">App-Einstellungen öffnen</string>
 
     <string name="sensor_test_title">G-Sensor testen</string>
@@ -181,7 +181,7 @@
 
     <string name="notification_channel_name">Aufnahme</string>
     <string name="notification_channel_description">Zeigt den Status der Dashcam-Aufnahme</string>
-    <string name="notification_title">RoadCam</string>
+    <string name="notification_title">Air-RoadCam</string>
     <string name="notification_text_recording">Aufnahme läuft im Hintergrund</string>
     <string name="notification_text_ready">Bereit für die nächste Fahrt</string>
     <string name="notification_action_stop">Stoppen</string>
