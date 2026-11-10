@@ -8,6 +8,8 @@
 
 Native Android-Dashcam-App mit Kotlin, Jetpack Compose und CameraX. Aufnahmen bleiben ausschließlich lokal auf dem Gerät.
 
+[![APK herunterladen](https://img.shields.io/badge/APK%20herunterladen-AirRoadCam%201.0-2ea44f?style=for-the-badge&logo=android&logoColor=white)](https://github.com/barezi5527/AirRoadCam/releases/latest/download/AirRoadCam-1.0.apk)
+
 ## Download
 
 [![Downloads gesamt](https://img.shields.io/github/downloads/barezi5527/AirRoadCam/total?style=flat-square&label=Downloads%20gesamt&color=0969da)](https://github.com/barezi5527/AirRoadCam/releases)
