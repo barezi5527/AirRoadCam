@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
@@ -163,6 +164,10 @@ class MainActivity : ComponentActivity() {
     private val landscapeLocked = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        android.util.Log.d(
+            "RoadCamOrientation",
+            "onCreate this=${Integer.toHexString(System.identityHashCode(this))} requested=$requestedOrientation locked=${landscapeLocked.value} state=${savedInstanceState != null}"
+        )
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -324,18 +329,31 @@ class MainActivity : ComponentActivity() {
 
     private fun applyOrientation() {
         requestedOrientation = if (landscapeLocked.value) {
-            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+            ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
         } else {
             ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
         }
+        android.util.Log.d("RoadCamOrientation", "apply locked=${landscapeLocked.value} requested=$requestedOrientation")
     }
 
     private fun toggleLandscapeLock() {
         landscapeLocked.value = !landscapeLocked.value
+        android.util.Log.d("RoadCamOrientation", "toggle locked=${landscapeLocked.value}")
         applyOrientation()
     }
 
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        android.util.Log.d("RoadCamOrientation", "onConfigurationChanged this=${Integer.toHexString(System.identityHashCode(this))} orientation=${newConfig.orientation}")
+        super.onConfigurationChanged(newConfig)
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        android.util.Log.d("RoadCamOrientation", "onSaveInstanceState this=${Integer.toHexString(System.identityHashCode(this))} locked=${landscapeLocked.value}")
+        super.onSaveInstanceState(outState)
+    }
+
     override fun onDestroy() {
+        android.util.Log.d("RoadCamOrientation", "onDestroy this=${Integer.toHexString(System.identityHashCode(this))} finishing=$isFinishing")
         if (isFinishing) viewModel.shutdown() else viewModel.disconnect()
         super.onDestroy()
     }
@@ -350,10 +368,6 @@ private fun notificationPermissionGranted(context: Context): Boolean =
 private fun locationPermissionGranted(context: Context): Boolean =
     hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ||
         hasPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
-
-@Composable
-private fun textOf(text: UiText): String =
-    stringResource(text.resId, *text.args.toTypedArray())
 
 @Composable
 private fun qualityLabel(quality: RecordQuality): String = stringResource(
@@ -474,17 +488,6 @@ private fun DashcamHome(
                         letterSpacing = 1.7.sp
                     )
                 }
-                Surface(shape = CircleShape, color = Panel) {
-                    Row(Modifier.padding(horizontal = 11.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(7.dp).clip(CircleShape).background(if (recording) Alert else Mint))
-                        Spacer(Modifier.width(7.dp))
-                        Text(
-                            stringResource(if (recording) R.string.status_live else R.string.status_ready),
-                            color = OnPanel, fontSize = 11.sp, fontWeight = FontWeight.Bold
-                        )
-                    }
-                }
-                Spacer(Modifier.width(4.dp))
                 IconButton(
                     onClick = onToggleLandscapeLock,
                     modifier = Modifier.size(40.dp)
@@ -624,22 +627,23 @@ private fun DashcamHome(
                     }
                 }
             }
-            Spacer(Modifier.height(8.dp))
-            Text(textOf(state.status), color = Muted, fontSize = 12.sp)
         }
 
         item {
-            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.height(IntrinsicSize.Min),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
                 MetricCard(
                     stringResource(R.string.mode_card_title),
                     stringResource(R.string.mode_card_value),
                     stringResource(R.string.mode_card_summary, settings.clipMinutes, qualityLabel(settings.quality)),
-                    Modifier.weight(1f),
+                    Modifier.weight(1f).fillMaxHeight(),
                     onClick = { showModeDialog = true },
                     enabled = !recording
                 )
                 SnapshotCard(
-                    Modifier.weight(1f),
+                    Modifier.weight(1f).fillMaxHeight(),
                     enabled = state.cameraReady && state.snapshotAvailable,
                     onClick = onTakeSnapshot
                 )
@@ -1546,29 +1550,11 @@ private fun DashcamLandscape(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Surface(
-                modifier = Modifier.weight(1f, fill = false),
-                shape = RoundedCornerShape(9.dp),
-                color = Color.Black.copy(alpha = .58f)
-            ) {
-                Text(
-                    textOf(state.status),
-                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis
-                )
-            }
             Spacer(Modifier.weight(1f))
             OverlayIconButton(
                 icon = Icons.Filled.VideoLibrary,
                 contentDescription = stringResource(R.string.landscape_gallery),
                 onClick = onOpenClips
-            )
-            OverlayIconButton(
-                icon = Icons.Filled.PhotoCamera,
-                contentDescription = stringResource(R.string.snapshot_take),
-                enabled = state.cameraReady && state.snapshotAvailable,
-                onClick = onTakeSnapshot
             )
             OverlayIconButton(
                 icon = Icons.Filled.Settings,
@@ -1590,26 +1576,37 @@ private fun DashcamLandscape(
                     )
                 }
             }
-            Button(
-                onClick = onToggleRecording,
-                enabled = state.cameraReady,
-                modifier = Modifier.height(46.dp),
-                shape = RoundedCornerShape(14.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = if (recording) MaterialTheme.colorScheme.errorContainer else Mint,
-                    contentColor = if (recording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary,
-                    disabledContainerColor = Elevated
-                )
+            Row(
+                modifier = Modifier.width(IntrinsicSize.Max),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                if (!state.cameraReady && hasCameraPermission) {
-                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Mint)
-                } else {
-                    Box(Modifier.size(11.dp).clip(CircleShape).background(if (recording) Alert else MaterialTheme.colorScheme.onPrimary))
+                Button(
+                    onClick = onToggleRecording,
+                    enabled = state.cameraReady,
+                    modifier = Modifier.weight(2f).height(46.dp),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (recording) MaterialTheme.colorScheme.errorContainer else Mint,
+                        contentColor = if (recording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary,
+                        disabledContainerColor = Elevated
+                    )
+                ) {
+                    if (!state.cameraReady && hasCameraPermission) {
+                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Mint)
+                    } else {
+                        Box(Modifier.size(11.dp).clip(CircleShape).background(if (recording) Alert else MaterialTheme.colorScheme.onPrimary))
+                    }
+                    Spacer(Modifier.width(8.dp))
+                    Text(
+                        stringResource(if (recording) R.string.recording_stop else R.string.recording_start),
+                        fontWeight = FontWeight.ExtraBold, letterSpacing = .4.sp, fontSize = 12.sp
+                    )
                 }
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    stringResource(if (recording) R.string.recording_stop else R.string.recording_start),
-                    fontWeight = FontWeight.ExtraBold, letterSpacing = .4.sp, fontSize = 12.sp
+                LandscapeSnapshotTile(
+                    modifier = Modifier.weight(1f),
+                    enabled = state.cameraReady && state.snapshotAvailable,
+                    onClick = onTakeSnapshot
                 )
             }
         }
@@ -1645,6 +1642,43 @@ private fun OverlayIconButton(
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(19.dp))
+        }
+    }
+}
+
+@Composable
+private fun LandscapeSnapshotTile(
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val alpha = if (enabled) 1f else .4f
+    Surface(
+        modifier = modifier
+            .height(46.dp)
+            .clip(RoundedCornerShape(14.dp))
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(14.dp),
+        color = Color.Black.copy(alpha = .58f)
+    ) {
+        Row(
+            Modifier.padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Filled.PhotoCamera,
+                contentDescription = stringResource(R.string.snapshot_take),
+                tint = Mint.copy(alpha = alpha),
+                modifier = Modifier.size(19.dp)
+            )
+            Spacer(Modifier.width(8.dp))
+            Text(
+                stringResource(R.string.snapshot_tile),
+                color = Color.White.copy(alpha = alpha),
+                fontWeight = FontWeight.ExtraBold,
+                letterSpacing = .4.sp,
+                fontSize = 12.sp
+            )
         }
     }
 }
@@ -1748,32 +1782,12 @@ private fun SnapshotCard(
         shape = RoundedCornerShape(18.dp),
         colors = CardDefaults.cardColors(containerColor = Panel)
     ) {
-        Column(Modifier.padding(15.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(
-                    Icons.Filled.PhotoCamera,
-                    contentDescription = null,
-                    tint = Mint,
-                    modifier = Modifier.size(15.dp).alpha(alpha)
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    stringResource(R.string.snapshot_card_title),
-                    color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold,
-                    letterSpacing = .8.sp, modifier = Modifier.alpha(alpha)
-                )
-            }
-            Spacer(Modifier.height(7.dp))
-            Text(
-                stringResource(R.string.snapshot_take),
-                color = OnPanel, fontSize = 17.sp, fontWeight = FontWeight.Bold,
-                maxLines = 1, overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.alpha(alpha)
-            )
-            Text(
-                stringResource(R.string.snapshot_card_hint),
-                color = Muted, fontSize = 11.sp,
-                modifier = Modifier.alpha(alpha)
+        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Icon(
+                Icons.Filled.PhotoCamera,
+                contentDescription = stringResource(R.string.snapshot_take),
+                tint = Mint.copy(alpha = alpha),
+                modifier = Modifier.size(38.dp)
             )
         }
     }

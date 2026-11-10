@@ -13,7 +13,6 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.PorterDuff
-import android.graphics.RectF
 import android.graphics.Typeface
 import android.hardware.Sensor
 import android.hardware.SensorEvent
@@ -69,6 +68,8 @@ import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.abs
+import kotlin.math.max
+import kotlin.math.roundToInt
 
 class RecordingService : LifecycleService() {
 
@@ -84,6 +85,13 @@ class RecordingService : LifecycleService() {
         private const val NOTIFICATION_ID = 42
         private const val EVENT_RECORDING_MS = 60_000L
         private const val STATUS_RESTORE_MS = 2_500L
+        private const val WATERMARK_SHIFT_FRACTION = 0.20f
+        private const val PORTRAIT_WATERMARK_SHIFT_FRACTION = 0.09f
+        private const val SPEED_BADGE_LEFT_FRACTION = 0.10f
+        private const val SPEED_BADGE_TEXT_SIZE_DP = 30f
+        private const val PORTRAIT_WATERMARK_TOP_FRACTION = 0.25f
+        private const val PORTRAIT_SPEED_BADGE_BASELINE_FRACTION = 0.74f
+        private const val WIDESCREEN_ASPECT = 16f / 9f
         private const val TAG = "RecordingService"
 
         fun start(context: Context) {
@@ -163,10 +171,11 @@ class RecordingService : LifecycleService() {
     private var overlayEffect: OverlayEffect? = null
     private val speedTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         typeface = Typeface.DEFAULT_BOLD
-        color = Color.WHITE
+        color = Color.rgb(255, 165, 0)
     }
-    private val speedBackgroundPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
-        color = Color.argb(150, 0, 0, 0)
+    private val watermarkTextPaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+        typeface = Typeface.DEFAULT_BOLD
+        color = Color.rgb(255, 165, 0)
     }
 
     private var locationManager: LocationManager? = null
@@ -766,31 +775,65 @@ class RecordingService : LifecycleService() {
         val canvas: Canvas = frame.overlayCanvas
         canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
 
+        // For photos the crop rect can be reported in a larger coordinate
+        // space (sensor active array) than the overlay canvas, which would
+        // push the overlays partly or completely outside the visible image
+        // and inflate their size. Drawing is therefore constrained to the
+        // intersection of crop rect and canvas. For video frames the crop
+        // rect lies within the canvas, so their layout is unchanged.
+        val canvasWidth = canvas.width
+        val canvasHeight = canvas.height
         val crop = frame.cropRect
+        var left = crop.left.coerceIn(0, canvasWidth)
+        var top = crop.top.coerceIn(0, canvasHeight)
+        var right = crop.right.coerceIn(0, canvasWidth)
+        var bottom = crop.bottom.coerceIn(0, canvasHeight)
+        var width = right - left
+        var height = bottom - top
+        if (width <= 0 || height <= 0) return
+
+        // Video (16:9 quality) and photo (16:9 resolution selector)
+        // outputs are cropped from the shared sensor buffer, typically
+        // 4:3, to a centered 16:9 area before the overlay is composited.
+        // Overlays anchored to the buffer edges therefore fell outside
+        // the visible image in landscape orientation (rotation 0/180)
+        // and were cut from the recordings. Narrowing the drawing area
+        // to the centered 16:9 core keeps every overlay inside all
+        // outputs in both orientations.
+        val aspect = width.toFloat() / height
+        if (aspect > WIDESCREEN_ASPECT) {
+            val narrowed = (height * WIDESCREEN_ASPECT).roundToInt()
+            left += (width - narrowed) / 2
+            width = narrowed
+            right = left + width
+        } else if (aspect < WIDESCREEN_ASPECT) {
+            val narrowed = (width / WIDESCREEN_ASPECT).roundToInt()
+            top += (height - narrowed) / 2
+            height = narrowed
+            bottom = top + height
+        }
+
         val rotation = frame.rotationDegrees
         val rotated = rotation == 90 || rotation == 270
-        val displayWidth = if (rotated) crop.height() else crop.width()
-        val displayHeight = if (rotated) crop.width() else crop.height()
+        val displayWidth = if (rotated) height else width
+        val displayHeight = if (rotated) width else height
         if (displayWidth <= 0 || displayHeight <= 0) return
 
         canvas.save()
         when (rotation) {
             90 -> {
-                canvas.translate(crop.left.toFloat(), (crop.top + crop.height()).toFloat())
+                canvas.translate(left.toFloat(), bottom.toFloat())
                 canvas.rotate(-90f)
             }
             180 -> {
-                canvas.translate(
-                    (crop.left + crop.width()).toFloat(),
-                    (crop.top + crop.height()).toFloat()
-                )
+                canvas.translate(right.toFloat(), bottom.toFloat())
                 canvas.rotate(180f)
             }
             270 -> {
-                canvas.translate((crop.left + crop.width()).toFloat(), crop.top.toFloat())
+                canvas.translate(right.toFloat(), top.toFloat())
                 canvas.rotate(90f)
             }
-            else -> canvas.translate(crop.left.toFloat(), crop.top.toFloat())
+            else -> canvas.translate(left.toFloat(), top.toFloat())
         }
 
         if (settings.gpsSpeedEnabled) drawSpeedBadge(canvas, displayWidth, displayHeight)
@@ -806,22 +849,18 @@ class RecordingService : LifecycleService() {
             getString(R.string.speed_no_fix)
         }
 
-        val textSize = (displayHeight * 0.045f).coerceAtLeast(24f)
+        val base = max(displayWidth, displayHeight)
+        val textSize = SPEED_BADGE_TEXT_SIZE_DP * resources.displayMetrics.density
         speedTextPaint.textSize = textSize
         speedTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
 
-        val margin = (displayWidth * 0.035f).coerceAtLeast(16f)
-        val x = margin
-        val baseline = displayHeight - margin - speedTextPaint.descent()
-        val pad = textSize * 0.30f
-        val textWidth = speedTextPaint.measureText(text)
-        val background = RectF(
-            x - pad,
-            baseline + speedTextPaint.ascent() - pad,
-            x + textWidth + pad,
-            baseline + speedTextPaint.descent() + pad
-        )
-        canvas.drawRoundRect(background, pad, pad, speedBackgroundPaint)
+        val margin = (base * 0.035f).coerceAtLeast(16f)
+        val x = (displayWidth * SPEED_BADGE_LEFT_FRACTION).coerceAtLeast(margin)
+        val baseline = if (displayHeight > displayWidth) {
+            displayHeight * PORTRAIT_SPEED_BADGE_BASELINE_FRACTION
+        } else {
+            displayHeight - margin - speedTextPaint.descent()
+        }
         canvas.drawText(text, x, baseline, speedTextPaint)
     }
 
@@ -836,30 +875,32 @@ class RecordingService : LifecycleService() {
                 abs(location.longitude), if (location.longitude >= 0) "E" else "W"
             )
         } else {
-            getString(R.string.speed_no_fix)
+            getString(R.string.watermark_no_fix)
         }
 
-        val textSize = (displayHeight * 0.032f).coerceAtLeast(16f)
-        speedTextPaint.textSize = textSize
-        speedTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
+        val base = max(displayWidth, displayHeight)
+        val textSize = (base * 0.020f).coerceAtLeast(12f)
+        watermarkTextPaint.textSize = textSize
+        watermarkTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
 
-        val margin = (displayWidth * 0.035f).coerceAtLeast(16f)
-        val pad = textSize * 0.35f
-        val right = displayWidth - margin
-        val baselineFirst = margin - speedTextPaint.ascent()
+        val margin = (base * 0.035f).coerceAtLeast(16f)
+        val horizontalMargin = (displayWidth * 0.035f).coerceAtLeast(16f)
+        val shift = if (displayHeight > displayWidth) {
+            PORTRAIT_WATERMARK_SHIFT_FRACTION
+        } else {
+            WATERMARK_SHIFT_FRACTION
+        }
+        val right = displayWidth - horizontalMargin - displayWidth * shift
+        val baselineFirst = if (displayHeight > displayWidth) {
+            displayHeight * PORTRAIT_WATERMARK_TOP_FRACTION - watermarkTextPaint.ascent()
+        } else {
+            margin - watermarkTextPaint.ascent()
+        }
         val baselineSecond = baselineFirst + textSize * 1.4f
-        val dateWidth = speedTextPaint.measureText(dateTime)
-        val coordinateWidth = speedTextPaint.measureText(coordinates)
-        val boxWidth = maxOf(dateWidth, coordinateWidth)
-        val background = RectF(
-            right - boxWidth - pad,
-            margin - pad,
-            right + pad,
-            baselineSecond + speedTextPaint.descent() + pad
-        )
-        canvas.drawRoundRect(background, pad, pad, speedBackgroundPaint)
-        canvas.drawText(dateTime, right - dateWidth, baselineFirst, speedTextPaint)
-        canvas.drawText(coordinates, right - coordinateWidth, baselineSecond, speedTextPaint)
+        val dateWidth = watermarkTextPaint.measureText(dateTime)
+        val coordinateWidth = watermarkTextPaint.measureText(coordinates)
+        canvas.drawText(dateTime, right - dateWidth, baselineFirst, watermarkTextPaint)
+        canvas.drawText(coordinates, right - coordinateWidth, baselineSecond, watermarkTextPaint)
     }
 
     private fun updateLocationUpdates() {

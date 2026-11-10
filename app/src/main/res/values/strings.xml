@@ -119,6 +119,7 @@
     <string name="mode_gps_permission">Standortberechtigung erforderlich</string>
     <string name="speed_overlay_kmh">%1$.0f km/h</string>
     <string name="speed_no_fix">GPS –</string>
+    <string name="watermark_no_fix">kein GPS</string>
     <string name="mode_gsensor">G-Sensor (Erschütterung)</string>
     <string name="mode_gsensor_hint">Starke Erschütterungen erkennen und den laufenden Clip schützen</string>
     <string name="mode_gsensor_sensitivity">G-Sensor-Empfindlichkeit</string>
@@ -183,8 +184,7 @@
     <string name="status_snapshot_saved">Foto gespeichert</string>
     <string name="status_snapshot_failed">Foto konnte nicht gespeichert werden</string>
     <string name="snapshot_take">Foto aufnehmen</string>
-    <string name="snapshot_card_title">FOTO</string>
-    <string name="snapshot_card_hint">Auch während der Aufnahme</string>
+    <string name="snapshot_tile">Foto</string>
     <string name="clip_photo">Foto öffnen</string>
 
     <string name="notification_channel_name">Aufnahme</string>
