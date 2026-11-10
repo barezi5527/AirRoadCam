@@ -18,6 +18,7 @@ import android.os.Bundle
 import android.os.PowerManager
 import android.provider.Settings
 import android.text.format.Formatter
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -169,6 +170,8 @@ class MainActivity : ComponentActivity() {
                 android.graphics.Color.TRANSPARENT
             )
         )
+        window.attributes.layoutInDisplayCutoutMode =
+            WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         setContent {
             val state by viewModel.uiState.collectAsStateWithLifecycle()
             RoadCamTheme(darkTheme = state.settings.darkTheme) {
@@ -265,7 +268,7 @@ class MainActivity : ComponentActivity() {
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    Box(Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing)) {
+                    Box(Modifier.fillMaxSize()) {
                         DashcamHome(
                             state = state,
                             hasCameraPermission = hasCameraPermission,
@@ -433,7 +436,7 @@ private fun DashcamHome(
         )
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier.fillMaxSize().windowInsetsPadding(WindowInsets.safeDrawing),
             contentPadding = PaddingValues(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 28.dp),
             verticalArrangement = Arrangement.spacedBy(18.dp)
         ) {
@@ -1413,7 +1416,8 @@ private fun DashcamLandscape(
         }
 
         Row(
-            modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+            modifier = Modifier.align(Alignment.TopStart).windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1462,7 +1466,8 @@ private fun DashcamLandscape(
         }
 
         Row(
-            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+            modifier = Modifier.align(Alignment.TopEnd).windowInsetsPadding(WindowInsets.safeDrawing)
+                .padding(12.dp),
             horizontalArrangement = Arrangement.spacedBy(7.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
@@ -1498,6 +1503,7 @@ private fun DashcamLandscape(
             modifier = Modifier
                 .align(Alignment.BottomStart)
                 .fillMaxWidth()
+                .windowInsetsPadding(WindowInsets.safeDrawing)
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp)

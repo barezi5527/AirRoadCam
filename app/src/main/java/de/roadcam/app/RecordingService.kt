@@ -32,6 +32,7 @@ import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
 import android.view.Display
+import android.view.Surface
 import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.MirrorMode
@@ -131,6 +132,9 @@ class RecordingService : LifecycleService() {
     private var locationListener: LocationListener? = null
     private var locationProvider: String? = null
     private var displayListener: DisplayManager.DisplayListener? = null
+    private var cameraRotation = Surface.ROTATION_0
+    private var restartRecordingAfterRebind = false
+    private val rebindRunnable = Runnable { bindCamera() }
     @Volatile
     private var speedKmh: Float? = null
 
@@ -270,6 +274,7 @@ class RecordingService : LifecycleService() {
     }
 
     fun stopRecording() {
+        restartRecordingAfterRebind = false
         recordingRequested = false
         eventRecordingActive = false
         mainHandler.removeCallbacks(segmentTimer)
@@ -282,6 +287,7 @@ class RecordingService : LifecycleService() {
                 it.copy(recording = false, currentProtected = false, status = UiText(R.string.status_stopped))
             }
             updateNotification()
+            if (currentDisplayRotation() != cameraRotation) scheduleCameraRebind()
         } else {
             recording.stop()
         }
@@ -426,6 +432,7 @@ class RecordingService : LifecycleService() {
                 )
             }
             updateNotification()
+            if (currentDisplayRotation() != cameraRotation) scheduleCameraRebind()
         }
     }
 
@@ -490,6 +497,8 @@ class RecordingService : LifecycleService() {
         val previewUseCase = Preview.Builder()
             .setMirrorMode(MirrorMode.MIRROR_MODE_ON_FRONT_ONLY)
             .build()
+        val displayRotation = currentDisplayRotation()
+        displayRotation?.let { previewUseCase.targetRotation = it }
         surfaceProvider?.let { previewUseCase.setSurfaceProvider(it) }
 
         val hevcSupported = runCatching {
@@ -512,6 +521,7 @@ class RecordingService : LifecycleService() {
         }
 
         val capture = VideoCapture.withOutput(recorderBuilder.build())
+        displayRotation?.let { capture.targetRotation = it }
         val useCaseGroup = UseCaseGroup.Builder()
             .addUseCase(previewUseCase)
             .addUseCase(capture)
@@ -538,6 +548,7 @@ class RecordingService : LifecycleService() {
         preview = previewUseCase
         videoCapture = capture
         registerDisplayListener()
+        cameraRotation = displayRotation ?: Surface.ROTATION_0
         updateState {
             it.copy(
                 cameraReady = true,
@@ -546,6 +557,10 @@ class RecordingService : LifecycleService() {
                 hevcActive = hevcActive,
                 status = UiText(R.string.status_ready)
             )
+        }
+        if (restartRecordingAfterRebind && !recordingRequested) {
+            restartRecordingAfterRebind = false
+            startRecording()
         }
     }
 
@@ -705,9 +720,13 @@ class RecordingService : LifecycleService() {
     }
 
     /**
-     * Keeps the video capture target rotation in sync with the display so that
-     * videos recorded after a device rotation are stored upright. Changes only
-     * affect new recordings; an active recording keeps its original rotation.
+     * Keeps the camera session in sync with the display rotation. The preview
+     * surface, the GPS speed overlay pipeline and the video orientation are
+     * all negotiated at bind time, so a device rotation requires a rebind.
+     * While a regular recording is active, the recording is stopped and
+     * resumed once the camera has been rebound with the new orientation;
+     * event recordings are never interrupted. Recordings started after a
+     * rotation change pick up the new orientation immediately.
      */
     private fun registerDisplayListener() {
         val manager = getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager ?: return
@@ -721,13 +740,21 @@ class RecordingService : LifecycleService() {
                     if (displayId != Display.DEFAULT_DISPLAY) return
                     val rotation = manager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: return
                     videoCapture?.targetRotation = rotation
+                    if (rotation == cameraRotation) return
+                    when {
+                        eventRecordingActive -> Unit
+                        recordingRequested -> {
+                            stopRecording()
+                            restartRecordingAfterRebind = true
+                        }
+                        activeRecording == null -> scheduleCameraRebind()
+                    }
                 }
             }
             manager.registerDisplayListener(listener, mainHandler)
             displayListener = listener
         }
-        videoCapture?.targetRotation =
-            manager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: return
+        currentDisplayRotation()?.let { rotation -> videoCapture?.targetRotation = rotation }
     }
 
     private fun unregisterDisplayListener() {
@@ -736,6 +763,16 @@ class RecordingService : LifecycleService() {
                 ?.unregisterDisplayListener(listener)
         }
         displayListener = null
+        mainHandler.removeCallbacks(rebindRunnable)
+    }
+
+    private fun currentDisplayRotation(): Int? =
+        (getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager)
+            ?.getDisplay(Display.DEFAULT_DISPLAY)?.rotation
+
+    private fun scheduleCameraRebind() {
+        mainHandler.removeCallbacks(rebindRunnable)
+        mainHandler.postDelayed(rebindRunnable, 300L)
     }
 
     private fun stopLocationUpdates() {
