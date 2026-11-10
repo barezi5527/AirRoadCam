@@ -10,13 +10,13 @@ data class DashcamSettings(
     val retentionDays: Int = 5,
     val storageLimitGb: Int = 10,
     val overlapSeconds: Int = 0,
-    val hevcEnabled: Boolean = true,
+    val hevcEnabled: Boolean = false,
     val audioEnabled: Boolean = false,
     val gpsSpeedEnabled: Boolean = false,
     val watermarkEnabled: Boolean = false,
-    val gSensorEnabled: Boolean = true,
+    val gSensorEnabled: Boolean = false,
     val gSensorSensitivity: GSensorSensitivity = GSensorSensitivity.MITTEL_2,
-    val screenTimeoutMinutes: Int = 0,
+    val screenTimeoutMinutes: Int = 1,
     val darkTheme: Boolean = true
 ) {
     val segmentLengthMs: Long get() = clipMinutes * 60L * 1000L

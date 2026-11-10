@@ -7,7 +7,11 @@ class SettingsStore(context: Context) {
 
     fun load(): DashcamSettings {
         val defaults = DashcamSettings()
-        val legacyKeepScreenOn = prefs.getBoolean("keepScreenOn", true)
+        val legacyKeepScreenOn = if (prefs.contains("keepScreenOn")) {
+            prefs.getBoolean("keepScreenOn", true)
+        } else {
+            null
+        }
         return DashcamSettings(
             clipMinutes = prefs.getInt("clipMinutes", defaults.clipMinutes)
                 .takeIf { it in DashcamSettings.CLIP_MINUTES } ?: defaults.clipMinutes,
@@ -32,7 +36,11 @@ class SettingsStore(context: Context) {
                 ?: defaults.gSensorSensitivity,
             screenTimeoutMinutes = prefs.getInt(
                 "screenTimeoutMinutes",
-                if (legacyKeepScreenOn) 0 else 1
+                when (legacyKeepScreenOn) {
+                    true -> 0
+                    false -> 1
+                    null -> defaults.screenTimeoutMinutes
+                }
             ).takeIf { it in DashcamSettings.SCREEN_TIMEOUT_MINUTES } ?: defaults.screenTimeoutMinutes,
             darkTheme = prefs.getBoolean("darkTheme", defaults.darkTheme)
         )
