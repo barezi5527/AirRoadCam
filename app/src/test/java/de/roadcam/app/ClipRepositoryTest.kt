@@ -169,4 +169,112 @@ class ClipRepositoryTest {
         assertTrue(result.removed.isEmpty())
         assertTrue(expired.exists())
     }
+
+    @Test
+    fun `listClips includes jpg and jpeg photos and marks them`() {
+        val directory = folder.newFolder()
+        val jpg = clip(directory, "AirRoadCam_Photo_1.jpg")
+        val jpeg = clip(directory, "AirRoadCam_Photo_2.jpeg")
+        val video = clip(directory, "RoadCam_1.mp4")
+        val repository = repository(directory, FakeProtectionStore())
+
+        val clips = repository.listClips().associateBy { it.file.name }
+
+        assertEquals(setOf(video.name, jpg.name, jpeg.name), clips.keys)
+        assertTrue(clips.getValue(jpg.name).isPhoto)
+        assertTrue(clips.getValue(jpeg.name).isPhoto)
+        assertFalse(clips.getValue(video.name).isPhoto)
+    }
+
+    @Test
+    fun `listClips treats uppercase photo extensions as photos`() {
+        val directory = folder.newFolder()
+        val upperJpg = clip(directory, "PHOTO.JPG")
+        val upperJpeg = clip(directory, "PHOTO.JPEG")
+        val repository = repository(directory, FakeProtectionStore())
+
+        val clips = repository.listClips().associateBy { it.file.name }
+
+        assertEquals(setOf(upperJpg.name, upperJpeg.name), clips.keys)
+        assertTrue(clips.getValue(upperJpg.name).isPhoto)
+        assertTrue(clips.getValue(upperJpeg.name).isPhoto)
+    }
+
+    @Test
+    fun `listClips ignores unsupported and empty files`() {
+        val directory = folder.newFolder()
+        clip(directory, "note.txt")
+        clip(directory, "image.png")
+        clip(directory, "empty.jpg", size = 0)
+        val repository = repository(directory, FakeProtectionStore())
+
+        assertTrue(repository.listClips().isEmpty())
+        assertEquals(0L, repository.totalSize())
+    }
+
+    @Test
+    fun `deleteClip removes unprotected photo`() {
+        val directory = folder.newFolder()
+        val photo = clip(directory, "AirRoadCam_Photo_1.jpg")
+        val repository = repository(directory, FakeProtectionStore())
+
+        val result = repository.deleteClip(DashClip(photo, protected = false))
+
+        assertEquals(DeleteResult.DELETED, result)
+        assertFalse(photo.exists())
+    }
+
+    @Test
+    fun `deleteClip keeps protected photo`() {
+        val directory = folder.newFolder()
+        val photo = clip(directory, "AirRoadCam_Photo_1.jpg")
+        val protection = FakeProtectionStore(setOf(photo.name))
+        val repository = repository(directory, protection)
+
+        val result = repository.deleteClip(DashClip(photo, protected = true))
+
+        assertEquals(DeleteResult.PROTECTED, result)
+        assertTrue(photo.exists())
+    }
+
+    @Test
+    fun `prune accounts for photos when enforcing storage limit`() {
+        val directory = folder.newFolder()
+        val oldestPhoto = clip(
+            directory,
+            "AirRoadCam_Photo_old.jpg",
+            size = 2L * 1024 * 1024 * 1024,
+            modified = now - 2_000
+        )
+        val video = clip(
+            directory,
+            "RoadCam_new.mp4",
+            size = 1L * 1024 * 1024 * 1024,
+            modified = now - 1_000
+        )
+        val repository = repository(directory, FakeProtectionStore())
+
+        val result = repository.prune(DashcamSettings(storageLimitGb = 1))
+
+        assertEquals(listOf(oldestPhoto), result.removed)
+        assertFalse(oldestPhoto.exists())
+        assertTrue(video.exists())
+    }
+
+    @Test
+    fun `prune removes expired photos when retention is enabled`() {
+        val directory = folder.newFolder()
+        val day = 24L * 60L * 60L * 1000L
+        val expiredPhoto = clip(directory, "AirRoadCam_Photo_old.jpg", modified = now - 6 * day)
+        val recentVideo = clip(directory, "RoadCam_new.mp4", modified = now - 1 * day)
+        val repository = repository(directory, FakeProtectionStore())
+
+        val result = repository.prune(
+            DashcamSettings(deleteOldClips = true, retentionDays = 5, storageLimitGb = 64)
+        )
+
+        assertEquals(listOf(expiredPhoto), result.removed)
+        assertFalse(expiredPhoto.exists())
+        assertTrue(recentVideo.exists())
+    }
 }

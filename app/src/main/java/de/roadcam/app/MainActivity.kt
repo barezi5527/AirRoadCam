@@ -68,6 +68,7 @@ import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.PhotoCamera
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.ScreenRotation
 import androidx.compose.material.icons.filled.Settings
@@ -302,6 +303,7 @@ class MainActivity : ComponentActivity() {
                             onApplyMode = viewModel::applySettings,
                             onSwitchCamera = viewModel::switchCamera,
                             onToggleRecording = viewModel::toggleRecording,
+                            onTakeSnapshot = viewModel::takeSnapshot,
                             onProtectCurrent = viewModel::toggleCurrentProtection,
                             onToggleClipProtection = viewModel::toggleClipProtection,
                             onDeleteClip = viewModel::deleteClip,
@@ -399,6 +401,7 @@ private fun DashcamHome(
     onApplyMode: (DashcamSettings) -> Unit,
     onSwitchCamera: () -> Unit,
     onToggleRecording: () -> Unit,
+    onTakeSnapshot: () -> Unit,
     onProtectCurrent: () -> Unit,
     onToggleClipProtection: (DashClip) -> Unit,
     onDeleteClip: (DashClip) -> Unit,
@@ -433,6 +436,7 @@ private fun DashcamHome(
             onApplyMode = onApplyMode,
             onSwitchCamera = onSwitchCamera,
             onToggleRecording = onToggleRecording,
+            onTakeSnapshot = onTakeSnapshot,
             onProtectCurrent = onProtectCurrent,
             onOpenSettings = { showModeDialog = true },
             onOpenClips = { showClips = true },
@@ -615,6 +619,23 @@ private fun DashcamHome(
                             Icons.Filled.Shield,
                             contentDescription = stringResource(R.string.protect_current),
                             tint = if (state.currentProtected) Mint else OnPanel,
+                            modifier = Modifier.size(23.dp)
+                        )
+                    }
+                }
+                Surface(
+                    modifier = Modifier.size(58.dp).clickable(
+                        enabled = state.cameraReady && state.snapshotAvailable,
+                        onClick = onTakeSnapshot
+                    ),
+                    shape = RoundedCornerShape(18.dp),
+                    color = Panel
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Filled.PhotoCamera,
+                            contentDescription = stringResource(R.string.snapshot_take),
+                            tint = OnPanel,
                             modifier = Modifier.size(23.dp)
                         )
                     }
@@ -1403,6 +1424,7 @@ private fun DashcamLandscape(
     onApplyMode: (DashcamSettings) -> Unit,
     onSwitchCamera: () -> Unit,
     onToggleRecording: () -> Unit,
+    onTakeSnapshot: () -> Unit,
     onProtectCurrent: () -> Unit,
     onOpenSettings: () -> Unit,
     onOpenClips: () -> Unit,
@@ -1541,6 +1563,12 @@ private fun DashcamLandscape(
                 icon = Icons.Filled.VideoLibrary,
                 contentDescription = stringResource(R.string.landscape_gallery),
                 onClick = onOpenClips
+            )
+            OverlayIconButton(
+                icon = Icons.Filled.PhotoCamera,
+                contentDescription = stringResource(R.string.snapshot_take),
+                enabled = state.cameraReady && state.snapshotAvailable,
+                onClick = onTakeSnapshot
             )
             OverlayIconButton(
                 icon = Icons.Filled.Settings,
@@ -1725,7 +1753,13 @@ private fun ClipRow(
                 Modifier.size(42.dp).clip(RoundedCornerShape(13.dp)).background(Elevated).clickable { onPlay(clip) },
                 contentAlignment = Alignment.Center
             ) {
-                Icon(Icons.Filled.PlayArrow, contentDescription = stringResource(R.string.clip_play), tint = Mint)
+                Icon(
+                    if (clip.isPhoto) Icons.Filled.PhotoCamera else Icons.Filled.PlayArrow,
+                    contentDescription = stringResource(
+                        if (clip.isPhoto) R.string.clip_photo else R.string.clip_play
+                    ),
+                    tint = Mint
+                )
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {

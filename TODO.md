@@ -9,5 +9,6 @@ Sinnvolle nächste Schritte, nach Nutzen/Aufwand sortiert:
 - [x] **5. Audio optional** – Schalter, standardmäßig aus.
 - [x] **6. Aufräumen/Testbarkeit** – Texte in `strings.xml`, Logik aus `MainActivity` in ein ViewModel, Unit-Tests für `pruneClips`/`deleteClip`.
 - [x] **7. Kleinigkeiten** – Bildschirm anlassen, Hochformat sperren, Front-Preview spiegeln, Aufnahmeordner öffnen/teilen.
+- [x] **8. Foto-Snapshot** – Standbild-Button neben der Aufnahme, ohne laufende Aufnahme zu unterbrechen; Fotos in Liste, Schutz, Teilen und Speicherbereinigung integriert.
 
 **Empfehlung:** Mit 1 (Hintergrundaufnahme) anfangen, dann 2 und 3.

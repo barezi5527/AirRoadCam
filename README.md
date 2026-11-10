@@ -12,7 +12,8 @@ Voraussetzung: Android 10 (API 29) oder neuer. Zum Installieren die APK öffnen 
 
 - minimalistische Oberfläche mit Kameravorschau, Aufnahmestatus und Umschalter für dunkles/helles Design
 - Hintergrundaufnahme mit Schleifen-Segmenten, Qualitätswahl, HEVC und optionalem Ton
-- Clips lokal speichern, abspielen, teilen, schützen und löschen
+- Fotoaufnahme jederzeit möglich, auch während laufender Aufnahme
+- Clips und Fotos lokal speichern, abspielen, teilen, schützen und löschen
 - Speicherverwaltung mit Aufbewahrungsdauer, Speicherlimit und Schutz vor Überschreiben
 - G-Sensor-Erkennung mit optionaler Ereignisaufnahme und geschützten Notfall-Clips
 - optionales GPS-Geschwindigkeits-Overlay in Vorschau und Video

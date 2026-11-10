@@ -35,9 +35,14 @@ import android.view.Display
 import android.view.Surface
 import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageCapture
+import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.MirrorMode
 import androidx.camera.core.Preview
 import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.effects.Frame
 import androidx.camera.effects.OverlayEffect
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -62,6 +67,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 
 class RecordingService : LifecycleService() {
 
@@ -76,6 +82,7 @@ class RecordingService : LifecycleService() {
         private const val CHANNEL_ID = "roadcam_recording"
         private const val NOTIFICATION_ID = 42
         private const val EVENT_RECORDING_MS = 60_000L
+        private const val STATUS_RESTORE_MS = 2_500L
         private const val TAG = "RecordingService"
 
         fun start(context: Context) {
@@ -91,6 +98,7 @@ class RecordingService : LifecycleService() {
     private val binder = LocalBinder()
     private val mainHandler = Handler(Looper.getMainLooper())
     private val overlapExecutor = Executors.newSingleThreadExecutor()
+    private val snapshotExecutor = Executors.newSingleThreadExecutor()
     private val _state = MutableStateFlow(DashcamUiState())
     val state: StateFlow<DashcamUiState> = _state.asStateFlow()
 
@@ -101,6 +109,38 @@ class RecordingService : LifecycleService() {
     private var cameraProvider: ProcessCameraProvider? = null
     private var preview: Preview? = null
     private var videoCapture: VideoCapture<Recorder>? = null
+    private var imageCapture: ImageCapture? = null
+    private val snapshotInProgress = AtomicBoolean(false)
+    private var statusBeforeTransient: UiText? = null
+    private val restoreStatus = Runnable {
+        val status = statusBeforeTransient
+        statusBeforeTransient = null
+        if (status != null) updateState { it.copy(status = status) }
+    }
+
+    /**
+     * Sets a permanent status. Any pending restoration of a transient status
+     * (e.g. "Foto gespeichert") is cancelled so it cannot overwrite newer
+     * information.
+     */
+    private fun setStatus(text: UiText) {
+        statusBeforeTransient = null
+        mainHandler.removeCallbacks(restoreStatus)
+        updateState { it.copy(status = text) }
+    }
+
+    /**
+     * Shows a short-lived status (e.g. snapshot feedback) and restores the
+     * previous status afterwards, so messages like "Foto gespeichert" never
+     * permanently hide the recording state.
+     */
+    private fun showTransientStatus(text: UiText) {
+        if (statusBeforeTransient == null) statusBeforeTransient = _state.value.status
+        mainHandler.removeCallbacks(restoreStatus)
+        updateState { it.copy(status = text) }
+        mainHandler.postDelayed(restoreStatus, STATUS_RESTORE_MS)
+    }
+
     private var surfaceProvider: Preview.SurfaceProvider? = null
     private var lensFacing = CameraSelector.LENS_FACING_BACK
     private var canSwitchCamera = false
@@ -171,7 +211,9 @@ class RecordingService : LifecycleService() {
             return
         }
         refreshClips()
-        updateState { it.copy(settings = settings, status = UiText(R.string.status_preparing)) }
+        cleanupStaleSnapshots()
+        updateState { it.copy(settings = settings) }
+        setStatus(UiText(R.string.status_preparing))
         bindCamera()
         updateShockMonitoring()
         updateLocationUpdates()
@@ -205,6 +247,7 @@ class RecordingService : LifecycleService() {
         eventRecordingActive = false
         mainHandler.removeCallbacks(segmentTimer)
         mainHandler.removeCallbacks(eventStopTimer)
+        mainHandler.removeCallbacks(restoreStatus)
         activeRecording?.stop()
         stopShockMonitoring()
         stopLocationUpdates()
@@ -213,7 +256,9 @@ class RecordingService : LifecycleService() {
         cameraProvider?.unbindAll()
         overlayEffect?.close()
         overlayEffect = null
+        imageCapture = null
         overlapExecutor.shutdown()
+        snapshotExecutor.shutdown()
         super.onDestroy()
     }
 
@@ -256,19 +301,15 @@ class RecordingService : LifecycleService() {
     fun startRecording() {
         if (recordingRequested) return
         if (videoCapture == null) {
-            updateState { it.copy(status = UiText(R.string.status_camera_not_ready)) }
+            setStatus(UiText(R.string.status_camera_not_ready))
             return
         }
         recordingRequested = true
         previousSegment = null
         acquireWakeLock()
         updateShockMonitoring()
-        updateState {
-            it.copy(
-                recording = true,
-                status = UiText(R.string.status_recording, settings.clipMinutes)
-            )
-        }
+        updateState { it.copy(recording = true) }
+        setStatus(UiText(R.string.status_recording, settings.clipMinutes))
         updateNotification()
         startSegment()
     }
@@ -283,9 +324,8 @@ class RecordingService : LifecycleService() {
         releaseWakeLock()
         val recording = activeRecording
         if (recording == null) {
-            updateState {
-                it.copy(recording = false, currentProtected = false, status = UiText(R.string.status_stopped))
-            }
+            updateState { it.copy(recording = false, currentProtected = false) }
+            setStatus(UiText(R.string.status_stopped))
             updateNotification()
             if (currentDisplayRotation() != cameraRotation) scheduleCameraRebind()
         } else {
@@ -306,7 +346,7 @@ class RecordingService : LifecycleService() {
         } else {
             val newest = repository.listClips().firstOrNull()
             if (newest == null) {
-                updateState { it.copy(status = UiText(R.string.status_no_clip)) }
+                setStatus(UiText(R.string.status_no_clip))
                 return
             }
             if (newest.protected) repository.removeProtected(newest.file.name)
@@ -324,9 +364,7 @@ class RecordingService : LifecycleService() {
     fun deleteClip(clip: DashClip) {
         when (repository.deleteClip(clip, currentFile)) {
             DeleteResult.DELETED -> refreshClips()
-            DeleteResult.PROTECTED -> updateState {
-                it.copy(status = UiText(R.string.status_clip_protected))
-            }
+            DeleteResult.PROTECTED -> setStatus(UiText(R.string.status_clip_protected))
             DeleteResult.MISSING -> Unit
         }
     }
@@ -339,6 +377,93 @@ class RecordingService : LifecycleService() {
             CameraSelector.LENS_FACING_BACK
         }
         bindCamera()
+    }
+
+    /**
+     * Captures a photo next to the video clips. The photo is taken with a
+     * dedicated ImageCapture use case at the highest resolution the camera
+     * supports for the video's 16:9 aspect ratio, so it never interrupts an
+     * active recording.
+     */
+    fun takeSnapshot() {
+        val capture = imageCapture
+        if (capture == null) {
+            showTransientStatus(UiText(R.string.status_snapshot_failed))
+            return
+        }
+        if (!snapshotInProgress.compareAndSet(false, true)) return
+        val directory = recordingsDirectory()
+        if (directory.usableSpace < DashcamSettings.PHOTO_SPACE_RESERVE_BYTES) {
+            snapshotInProgress.set(false)
+            showTransientStatus(UiText(R.string.status_low_storage))
+            return
+        }
+        val staging = snapshotsDirectory()
+        val stamp = SimpleDateFormat("yyyy-MM-dd_HH-mm-ss-SSS", Locale.US).format(Date())
+        var candidate = File(staging, "AirRoadCam_Photo_$stamp.jpg")
+        var suffix = 1
+        while (candidate.exists()) {
+            candidate = File(staging, "AirRoadCam_Photo_${stamp}_$suffix.jpg")
+            suffix++
+        }
+        val options = ImageCapture.OutputFileOptions.Builder(candidate).build()
+        try {
+            capture.takePicture(
+                options,
+                snapshotExecutor,
+                object : ImageCapture.OnImageSavedCallback {
+                    override fun onImageSaved(outputFileResults: ImageCapture.OutputFileResults) {
+                        snapshotInProgress.set(false)
+                        val saved = publishSnapshot(candidate, directory, stamp)
+                        mainHandler.post {
+                            if (saved) {
+                                pruneClips()
+                                showTransientStatus(UiText(R.string.status_snapshot_saved))
+                            } else {
+                                showTransientStatus(UiText(R.string.status_snapshot_failed))
+                            }
+                        }
+                    }
+
+                    override fun onError(exception: ImageCaptureException) {
+                        snapshotInProgress.set(false)
+                        candidate.delete()
+                        Log.w(TAG, "Snapshot failed", exception)
+                        mainHandler.post {
+                            showTransientStatus(UiText(R.string.status_snapshot_failed))
+                        }
+                    }
+                }
+            )
+        } catch (error: Exception) {
+            snapshotInProgress.set(false)
+            candidate.delete()
+            Log.w(TAG, "Snapshot could not be started", error)
+            showTransientStatus(UiText(R.string.status_snapshot_failed))
+        }
+    }
+
+    private fun publishSnapshot(staged: File, directory: File, stamp: String): Boolean {
+        var target = File(directory, "AirRoadCam_Photo_$stamp.jpg")
+        var suffix = 1
+        while (target.exists()) {
+            target = File(directory, "AirRoadCam_Photo_${stamp}_$suffix.jpg")
+            suffix++
+        }
+        return try {
+            if (staged.renameTo(target)) {
+                true
+            } else {
+                staged.copyTo(target, overwrite = false)
+                staged.delete()
+                true
+            }
+        } catch (error: Exception) {
+            Log.w(TAG, "Snapshot could not be published", error)
+            staged.delete()
+            target.delete()
+            false
+        }
     }
 
     fun recordsDirectory(): File = recordingsDirectory()
@@ -360,14 +485,14 @@ class RecordingService : LifecycleService() {
         val capture = videoCapture
         if (capture == null) {
             stopRecording()
-            updateState { it.copy(status = UiText(R.string.status_camera_unavailable)) }
+            setStatus(UiText(R.string.status_camera_unavailable))
             return
         }
         pruneClips()
         val directory = recordingsDirectory()
         if (directory.usableSpace < DashcamSettings.FREE_SPACE_RESERVE_BYTES) {
             stopRecording()
-            updateState { it.copy(status = UiText(R.string.status_low_storage)) }
+            setStatus(UiText(R.string.status_low_storage))
             return
         }
         val file = nextFile(directory)
@@ -398,7 +523,7 @@ class RecordingService : LifecycleService() {
             repository.removeProtected(file.name)
             if (recordingRequested) {
                 stopRecording()
-                updateState { it.copy(status = UiText(R.string.status_recording_error)) }
+                setStatus(UiText(R.string.status_recording_error))
             } else {
                 updateState { it.copy(recording = false, currentProtected = false) }
             }
@@ -424,13 +549,8 @@ class RecordingService : LifecycleService() {
         if (recordingRequested) {
             startSegment()
         } else {
-            updateState {
-                it.copy(
-                    recording = false,
-                    currentProtected = false,
-                    status = UiText(R.string.status_saved)
-                )
-            }
+            updateState { it.copy(recording = false, currentProtected = false) }
+            setStatus(UiText(R.string.status_saved))
             updateNotification()
             if (currentDisplayRotation() != cameraRotation) scheduleCameraRebind()
         }
@@ -450,12 +570,8 @@ class RecordingService : LifecycleService() {
     private fun bindCamera() {
         if (recordingRequested) return
         if (!hasCameraPermission()) {
-            updateState {
-                it.copy(
-                    cameraReady = false,
-                    status = UiText(R.string.status_permission_required)
-                )
-            }
+            updateState { it.copy(cameraReady = false) }
+            setStatus(UiText(R.string.status_permission_required))
             return
         }
         val future = ProcessCameraProvider.getInstance(this)
@@ -466,17 +582,20 @@ class RecordingService : LifecycleService() {
                 null
             }
             if (provider == null) {
-                updateState { it.copy(status = UiText(R.string.status_camera_error)) }
+                setStatus(UiText(R.string.status_camera_error))
                 return@addListener
             }
             cameraProvider = provider
             try {
                 bindUseCases(provider)
             } catch (_: Exception) {
+                preview = null
                 videoCapture = null
-                updateState {
-                    it.copy(cameraReady = false, status = UiText(R.string.status_camera_error))
-                }
+                imageCapture = null
+                overlayEffect?.close()
+                overlayEffect = null
+                updateState { it.copy(cameraReady = false, snapshotAvailable = false) }
+                setStatus(UiText(R.string.status_camera_error))
             }
         }, ContextCompat.getMainExecutor(this))
     }
@@ -522,31 +641,73 @@ class RecordingService : LifecycleService() {
 
         val capture = VideoCapture.withOutput(recorderBuilder.build())
         displayRotation?.let { capture.targetRotation = it }
-        val useCaseGroup = UseCaseGroup.Builder()
-            .addUseCase(previewUseCase)
-            .addUseCase(capture)
 
-        overlayEffect?.close()
+        val photoCapture = ImageCapture.Builder()
+            .setResolutionSelector(
+                ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
+                    .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+                    .build()
+            )
+            .apply { displayRotation?.let { setTargetRotation(it) } }
+            .build()
+
+        val previousEffect = overlayEffect
         overlayEffect = null
-        if (settings.gpsSpeedEnabled) {
-            val effect = OverlayEffect(
-                CameraEffect.PREVIEW or CameraEffect.VIDEO_CAPTURE,
-                0,
-                mainHandler
-            ) { error -> Log.e(TAG, "Speed overlay failed", error) }
-            effect.setOnDrawListener { frame ->
-                drawSpeedOverlay(frame)
-                true
+        previousEffect?.close()
+
+        fun createEffect(targets: Int): OverlayEffect? {
+            if (!settings.gpsSpeedEnabled) return null
+            return OverlayEffect(targets, 0, mainHandler) { error ->
+                Log.e(TAG, "Speed overlay failed", error)
+            }.also { effect ->
+                effect.setOnDrawListener { frame ->
+                    drawSpeedOverlay(frame)
+                    true
+                }
             }
-            overlayEffect = effect
-            useCaseGroup.addEffect(effect)
         }
 
-        provider.unbindAll()
-        provider.bindToLifecycle(this, selector, useCaseGroup.build())
+        fun buildGroup(includePhoto: Boolean): Pair<UseCaseGroup, OverlayEffect?> {
+            val builder = UseCaseGroup.Builder()
+                .addUseCase(previewUseCase)
+                .addUseCase(capture)
+            if (includePhoto) builder.addUseCase(photoCapture)
+            var targets = CameraEffect.PREVIEW or CameraEffect.VIDEO_CAPTURE
+            if (includePhoto) targets = targets or CameraEffect.IMAGE_CAPTURE
+            val effect = createEffect(targets)
+            effect?.let { builder.addEffect(it) }
+            return builder.build() to effect
+        }
+
+        var boundPhoto = true
+        var activeEffect: OverlayEffect? = null
+        try {
+            val (group, effect) = buildGroup(includePhoto = true)
+            activeEffect = effect
+            provider.unbindAll()
+            provider.bindToLifecycle(this, selector, group)
+        } catch (photoError: Exception) {
+            Log.w(TAG, "Camera bind with ImageCapture failed, retrying without snapshots", photoError)
+            activeEffect?.close()
+            activeEffect = null
+            boundPhoto = false
+            val (group, effect) = buildGroup(includePhoto = false)
+            activeEffect = effect
+            try {
+                provider.unbindAll()
+                provider.bindToLifecycle(this, selector, group)
+            } catch (fallbackError: Exception) {
+                activeEffect?.close()
+                activeEffect = null
+                throw fallbackError
+            }
+        }
+        overlayEffect = activeEffect
 
         preview = previewUseCase
         videoCapture = capture
+        imageCapture = if (boundPhoto) photoCapture else null
         registerDisplayListener()
         cameraRotation = displayRotation ?: Surface.ROTATION_0
         updateState {
@@ -555,9 +716,10 @@ class RecordingService : LifecycleService() {
                 lensFacing = lensFacing,
                 canSwitchCamera = canSwitchCamera,
                 hevcActive = hevcActive,
-                status = UiText(R.string.status_ready)
+                snapshotAvailable = boundPhoto
             )
         }
+        setStatus(UiText(R.string.status_ready))
         if (restartRecordingAfterRebind && !recordingRequested) {
             restartRecordingAfterRebind = false
             startRecording()
@@ -740,6 +902,7 @@ class RecordingService : LifecycleService() {
                     if (displayId != Display.DEFAULT_DISPLAY) return
                     val rotation = manager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: return
                     videoCapture?.targetRotation = rotation
+                    imageCapture?.targetRotation = rotation
                     if (rotation == cameraRotation) return
                     when {
                         eventRecordingActive -> Unit
@@ -754,7 +917,10 @@ class RecordingService : LifecycleService() {
             manager.registerDisplayListener(listener, mainHandler)
             displayListener = listener
         }
-        currentDisplayRotation()?.let { rotation -> videoCapture?.targetRotation = rotation }
+        currentDisplayRotation()?.let { rotation ->
+            videoCapture?.targetRotation = rotation
+            imageCapture?.targetRotation = rotation
+        }
     }
 
     private fun unregisterDisplayListener() {
@@ -799,12 +965,8 @@ class RecordingService : LifecycleService() {
             isCurrentShockProtected = true
             repository.addShockProtected(file.name)
             refreshClips()
-            updateState {
-                it.copy(
-                    currentProtected = true,
-                    status = UiText(R.string.status_shock_protected, forceG)
-                )
-            }
+            updateState { it.copy(currentProtected = true) }
+            setStatus(UiText(R.string.status_shock_protected, forceG))
         } else if (settings.eventRecordingEnabled) {
             startEventRecording(forceG)
         }
@@ -824,12 +986,8 @@ class RecordingService : LifecycleService() {
             isCurrentShockProtected = true
             repository.addShockProtected(file.name)
             refreshClips()
-            updateState {
-                it.copy(
-                    currentProtected = true,
-                    status = UiText(R.string.status_event_recording, forceG)
-                )
-            }
+            updateState { it.copy(currentProtected = true) }
+            setStatus(UiText(R.string.status_event_recording, forceG))
         }
         mainHandler.removeCallbacks(eventStopTimer)
         mainHandler.postDelayed(eventStopTimer, EVENT_RECORDING_MS)
@@ -854,6 +1012,17 @@ class RecordingService : LifecycleService() {
         getExternalFilesDir(Environment.DIRECTORY_MOVIES) ?: filesDir,
         "RoadCam"
     ).apply { mkdirs() }
+
+    private fun snapshotsDirectory(): File =
+        File(recordingsDirectory(), ".snapshots").apply { mkdirs() }
+
+    private fun cleanupStaleSnapshots() {
+        val cutoff = System.currentTimeMillis() - 60L * 60L * 1000L
+        snapshotsDirectory().listFiles()
+            .orEmpty()
+            .filter { it.isFile && it.lastModified() < cutoff }
+            .forEach { it.delete() }
+    }
 
     private fun hasCameraPermission(): Boolean =
         ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==

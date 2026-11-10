@@ -28,5 +28,6 @@ data class DashcamSettings(
         val STORAGE_LIMIT_GB = listOf(2, 5, 10, 20, 32, 64)
         val OVERLAP_SECONDS = listOf(0, 1, 2)
         const val FREE_SPACE_RESERVE_BYTES = 1024L * 1024L * 1024L
+        const val PHOTO_SPACE_RESERVE_BYTES = 20L * 1024L * 1024L
     }
 }

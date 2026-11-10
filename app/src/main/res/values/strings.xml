@@ -56,32 +56,32 @@
 
     <string name="recording_start">AUFNAHME STARTEN</string>
     <string name="recording_stop">AUFNAHME BEENDEN</string>
-    <string name="protect_current">Aktuellen Clip schützen</string>
+    <string name="protect_current">Aktuelle Aufnahme schützen</string>
 
     <string name="mode_card_title">AUFNAHMEMODUS</string>
     <string name="mode_card_value">Einstellungen</string>
     <string name="mode_card_summary">%1$d Min · %2$s</string>
     <string name="storage_card_title">LOKAL GESPEICHERT</string>
-    <string name="storage_card_clips">%1$d Clips</string>
+    <string name="storage_card_clips">%1$d Aufnahmen</string>
 
     <string name="clips_title">Letzte Aufnahmen</string>
     <string name="clips_subtitle">Lokal auf diesem Gerät</string>
-    <string name="clips_share_all">Alle Clips teilen</string>
+    <string name="clips_share_all">Alle Aufnahmen teilen</string>
     <string name="clips_empty_title">Noch keine Aufnahmen</string>
-    <string name="clips_empty_body">Deine Clips erscheinen nach der ersten Fahrt hier.</string>
+    <string name="clips_empty_body">Deine Clips und Fotos erscheinen nach der ersten Fahrt hier.</string>
     <string name="clip_play">Clip abspielen</string>
-    <string name="clip_protect">Clip schützen</string>
+    <string name="clip_protect">Aufnahme schützen</string>
     <string name="clip_unprotect">Schutz aufheben</string>
-    <string name="clip_share">Clip teilen</string>
+    <string name="clip_share">Aufnahme teilen</string>
     <string name="clip_shock_protected">Notfallaufnahme durch Erschütterung</string>
     <string name="clip_delete">Löschen</string>
     <string name="footer_note">Audio und GPS sind optional. Aufnahmen bleiben auf deinem Gerät.</string>
 
-    <string name="dialog_delete_title">Clip löschen?</string>
+    <string name="dialog_delete_title">Aufnahme löschen?</string>
     <string name="dialog_delete_body">Die Aufnahme wird endgültig vom Gerät entfernt.</string>
     <string name="dialog_delete_confirm">Endgültig löschen</string>
-    <string name="dialog_protected_title">Clip ist geschützt</string>
-    <string name="dialog_protected_body">Geschützte Clips werden nicht automatisch gelöscht. Hebe zuerst den Schutz auf, um diesen Clip löschen zu können.</string>
+    <string name="dialog_protected_title">Aufnahme ist geschützt</string>
+    <string name="dialog_protected_body">Geschützte Aufnahmen werden nicht automatisch gelöscht. Hebe zuerst den Schutz auf, um diese Aufnahme löschen zu können.</string>
     <string name="dialog_protected_confirm">Schutz aufheben</string>
     <string name="dialog_cancel">Abbrechen</string>
     <string name="dialog_apply">Übernehmen</string>
@@ -98,8 +98,8 @@
     <string name="mode_autostart_hint">Startet beim Öffnen der App oder bei Stromzufuhr</string>
     <string name="mode_event_recording">Ereignisaufnahme</string>
     <string name="mode_event_recording_hint">Startet bei Erschütterung automatisch eine geschützte 60-s-Aufnahme</string>
-    <string name="mode_delete_old">Alte Clips löschen</string>
-    <string name="mode_delete_old_hint">Ungeschützte Clips nach Ablauf der Aufbewahrung entfernen</string>
+    <string name="mode_delete_old">Alte Aufnahmen löschen</string>
+    <string name="mode_delete_old_hint">Ungeschützte Aufnahmen nach Ablauf der Aufbewahrung entfernen</string>
     <string name="mode_retention">Aufbewahrung</string>
     <string name="mode_retention_days">%1$d Tage</string>
     <string name="mode_storage_limit">Speicherlimit</string>
@@ -155,11 +155,11 @@
     </string-array>
     <string-array name="help_bodies">
         <item>Logo und App-Name links. Die Pille rechts zeigt den Status: grüner Punkt „BEREIT“, roter Punkt „LIVE“ während der Aufnahme. Das Drehsymbol sperrt das Querformat, das Menü-Symbol öffnet das Menü, und das Sonnen-/Mond-Symbol wechselt zwischen dunklem und hellem Design.</item>
-        <item>Die App startet im Hochformat. Wird das Gerät gedreht, wechselt sie ins Querformat: Die Kamera füllt den Bildschirm, oben liegen Pills für Status, GPS-Geschwindigkeit und Speicherplatz, unten der Aufnahme-Button samt Status. Das Drehsymbol sperrt das Querformat unabhängig von der Gerätehaltung – nochmaliges Tippen kehrt zur Sensordrehung zurück. Videos, die nach einer Drehung starten, werden automatisch im richtigen Winkel gespeichert.</item>
+        <item>Die App startet im Hochformat. Wird das Gerät gedreht, wechselt sie ins Querformat: Die Kamera füllt den Bildschirm, oben liegen Pills für Status, GPS-Geschwindigkeit und Speicherplatz, unten der Aufnahme-Button samt Status sowie Galerie-, Foto-, Einstellungs- und Schutz-Buttons. Das Drehsymbol sperrt das Querformat unabhängig von der Gerätehaltung – nochmaliges Tippen kehrt zur Sensordrehung zurück. Videos, die nach einer Drehung starten, werden automatisch im richtigen Winkel gespeichert.</item>
         <item>Oben links steht „KAMERA AKTIV“ bzw. „AUFNAHME“ mit rotem Punkt. Oben rechts wechselt das Kamera-Symbol zwischen Front- und Rückkamera – nur wenn beide vorhanden sind und nicht aufgenommen wird. Unten rechts zeigt das Badge Auflösung und Bildrate, z. B. „1080p · 30 FPS“.</item>
-        <item>Der große Button startet und beendet die Aufnahme. Das Schild daneben schützt den Clip: während der Aufnahme das laufende Segment, sonst die neueste Aufnahme. Geschützte Clips werden bei der automatischen Speicherbereinigung nie gelöscht. Mint = geschützt, erneut tippen hebt den Schutz auf.</item>
-        <item>„AUFNAHMEMODUS“ öffnet Clip-Länge, Qualität, Aufbewahrung, Speicherlimit, Segment-Überlappung, HEVC und Ton. Außerdem lassen sich Schutz beim Start, Autostart, Ereignisaufnahme, GPS-Geschwindigkeit, automatisches Löschen alter Clips und der wachbleibende Bildschirm einstellen. Der Autostart beginnt beim Öffnen der App oder bei Stromzufuhr; die Ereignisaufnahme startet bei Erschütterung automatisch einen geschützten 60-s-Clip. GPS blendet die Geschwindigkeit in km/h in Vorschau und Aufnahme ein. Während einer Aufnahme ist die Karte gesperrt.</item>
-        <item>Play öffnet den Clip im Video-Player. Das Schloss schützt oder entsperrt einen gespeicherten Clip. Über das Teilen-Symbol lassen sich einzelne Clips oder alle Aufnahmen weitergeben. Ungeschützte Clips entfernt „Löschen“ nach einer Bestätigung endgültig. Im Querformat öffnet das Galerie-Symbol die Aufnahmen als Liste.</item>
+        <item>Der große Button startet und beendet die Aufnahme. Das Schild daneben schützt die Aufnahme: während der Aufnahme das laufende Segment, sonst die neueste Aufnahme – auch Fotos. Geschützte Aufnahmen werden bei der automatischen Speicherbereinigung nie gelöscht. Mint = geschützt, erneut tippen hebt den Schutz auf. Der Foto-Button nimmt jederzeit ein Standbild auf, ohne die laufende Aufnahme zu unterbrechen; das Foto erscheint anschließend zusammen mit den Clips in der Liste und unterliegt derselben Speicherbereinigung.</item>
+        <item>„AUFNAHMEMODUS“ öffnet Clip-Länge, Qualität, Aufbewahrung, Speicherlimit, Segment-Überlappung, HEVC und Ton. Außerdem lassen sich Schutz beim Start, Autostart, Ereignisaufnahme, GPS-Geschwindigkeit, automatisches Löschen alter Aufnahmen und der wachbleibende Bildschirm einstellen. Der Autostart beginnt beim Öffnen der App oder bei Stromzufuhr; die Ereignisaufnahme startet bei Erschütterung automatisch einen geschützten 60-s-Clip. GPS blendet die Geschwindigkeit in km/h in Vorschau und Aufnahme ein. Während einer Aufnahme ist die Karte gesperrt.</item>
+        <item>Play öffnet Clips im Video-Player und Fotos im Bildbetrachter. Das Schloss schützt oder entsperrt eine gespeicherte Aufnahme. Über das Teilen-Symbol lassen sich einzelne Aufnahmen oder alle weitergeben. Ungeschützte Aufnahmen entfernt „Löschen“ nach einer Bestätigung endgültig. Im Querformat öffnet das Galerie-Symbol die Aufnahmen als Liste.</item>
         <item>Die Aufnahme läuft über einen Vordergrunddienst weiter, wenn die App im Hintergrund ist oder das Display ausgeht. Eine dauerhafte Benachrichtigung zeigt den Zustand und bietet einen Stopp-Button. Audio ist standardmäßig aus und benötigt die Mikrofonberechtigung. Der G-Sensor erkennt starke Erschütterungen und schützt den laufenden Clip automatisch vor dem Überschreiben.</item>
         <item>Aufnahmen bleiben lokal auf dem Gerät. GPS und Audio sind optional. Beachte die rechtlichen Regeln für dauerhafte Aufzeichnungen im öffentlichen Verkehr.</item>
     </string-array>
@@ -175,9 +175,13 @@
     <string name="status_recording_error">Aufnahmefehler · bitte Kamera prüfen</string>
     <string name="status_permission_required">Kameraberechtigung erforderlich</string>
     <string name="status_no_clip">Noch keine Aufnahme vorhanden</string>
-    <string name="status_clip_protected">Clip ist geschützt – Schutz zuerst aufheben</string>
+    <string name="status_clip_protected">Aufnahme ist geschützt – Schutz zuerst aufheben</string>
     <string name="status_shock_protected">Erschütterung erkannt (%1$.1f g) · Clip geschützt</string>
     <string name="status_event_recording">Erschütterung erkannt (%1$.1f g) · Notfallaufnahme läuft</string>
+    <string name="status_snapshot_saved">Foto gespeichert</string>
+    <string name="status_snapshot_failed">Foto konnte nicht gespeichert werden</string>
+    <string name="snapshot_take">Foto aufnehmen</string>
+    <string name="clip_photo">Foto öffnen</string>
 
     <string name="notification_channel_name">Aufnahme</string>
     <string name="notification_channel_description">Zeigt den Status der Dashcam-Aufnahme</string>

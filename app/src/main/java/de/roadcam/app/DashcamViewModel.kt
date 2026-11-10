@@ -130,12 +130,13 @@ class DashcamViewModel(application: Application) : AndroidViewModel(application)
     fun toggleClipProtection(clip: DashClip) = _service.value?.toggleClipProtection(clip) ?: Unit
     fun deleteClip(clip: DashClip) = _service.value?.deleteClip(clip) ?: Unit
     fun switchCamera() = _service.value?.switchCamera() ?: Unit
+    fun takeSnapshot() = _service.value?.takeSnapshot() ?: Unit
 
     fun playClip(clip: DashClip) {
         val context = getApplication<Application>()
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", clip.file)
         val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "video/mp4")
+            setDataAndType(uri, if (clip.isPhoto) "image/jpeg" else "video/mp4")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_ACTIVITY_NEW_TASK)
         }
         runCatching { context.startActivity(intent) }
@@ -145,7 +146,7 @@ class DashcamViewModel(application: Application) : AndroidViewModel(application)
         val context = getApplication<Application>()
         val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", clip.file)
         val intent = Intent(Intent.ACTION_SEND).apply {
-            type = "video/mp4"
+            type = if (clip.isPhoto) "image/jpeg" else "video/mp4"
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
@@ -158,8 +159,9 @@ class DashcamViewModel(application: Application) : AndroidViewModel(application)
         val uris = ArrayList<Uri>(clips.map {
             FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", it.file)
         })
+        val types = clips.map { if (it.isPhoto) "image/jpeg" else "video/mp4" }.distinct()
         val intent = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-            type = "video/mp4"
+            type = if (types.size == 1) types.first() else "*/*"
             putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }

@@ -11,6 +11,7 @@ data class DashcamUiState(
     val lensFacing: Int = CameraSelector.LENS_FACING_BACK,
     val canSwitchCamera: Boolean = false,
     val hevcActive: Boolean = false,
+    val snapshotAvailable: Boolean = false,
     val speedKmh: Float? = null,
     val settings: DashcamSettings = DashcamSettings()
 )

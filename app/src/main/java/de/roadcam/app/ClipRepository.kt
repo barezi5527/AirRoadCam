@@ -126,5 +126,11 @@ class ClipRepository(
 
     private fun clipFiles(): List<File> = directory.listFiles()
         .orEmpty()
-        .filter { it.isFile && it.extension.equals("mp4", ignoreCase = true) }
+        .filter {
+            it.isFile && (
+                it.extension.equals("mp4", ignoreCase = true) ||
+                    it.extension.equals("jpg", ignoreCase = true) ||
+                    it.extension.equals("jpeg", ignoreCase = true)
+                )
+        }
 }
