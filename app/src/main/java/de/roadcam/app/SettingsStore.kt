@@ -25,6 +25,7 @@ class SettingsStore(context: Context) {
             hevcEnabled = prefs.getBoolean("hevcEnabled", defaults.hevcEnabled),
             audioEnabled = prefs.getBoolean("audioEnabled", defaults.audioEnabled),
             gpsSpeedEnabled = prefs.getBoolean("gpsSpeedEnabled", defaults.gpsSpeedEnabled),
+            watermarkEnabled = prefs.getBoolean("watermarkEnabled", defaults.watermarkEnabled),
             gSensorEnabled = prefs.getBoolean("gSensorEnabled", defaults.gSensorEnabled),
             gSensorSensitivity = GSensorSensitivity.fromStoredName(prefs.getString("gSensorSensitivity", null))
                 ?: defaults.gSensorSensitivity,
@@ -47,6 +48,7 @@ class SettingsStore(context: Context) {
             .putBoolean("hevcEnabled", settings.hevcEnabled)
             .putBoolean("audioEnabled", settings.audioEnabled)
             .putBoolean("gpsSpeedEnabled", settings.gpsSpeedEnabled)
+            .putBoolean("watermarkEnabled", settings.watermarkEnabled)
             .putBoolean("gSensorEnabled", settings.gSensorEnabled)
             .putString("gSensorSensitivity", settings.gSensorSensitivity.name)
             .putBoolean("keepScreenOn", settings.keepScreenOn)

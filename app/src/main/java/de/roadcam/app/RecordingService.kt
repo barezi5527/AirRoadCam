@@ -68,6 +68,7 @@ import java.util.Date
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.abs
 
 class RecordingService : LifecycleService() {
 
@@ -177,6 +178,9 @@ class RecordingService : LifecycleService() {
     private val rebindRunnable = Runnable { bindCamera() }
     @Volatile
     private var speedKmh: Float? = null
+    @Volatile
+    private var lastLocation: Location? = null
+    private val watermarkDate = SimpleDateFormat("dd.MM.yyyy · HH:mm:ss", Locale.GERMANY)
 
     private val shockListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
@@ -273,14 +277,16 @@ class RecordingService : LifecycleService() {
         settingsStore.save(settings)
         updateState { it.copy(settings = settings) }
         if (settings.audioEnabled != previous.audioEnabled ||
-            settings.gpsSpeedEnabled != previous.gpsSpeedEnabled
+            settings.gpsSpeedEnabled != previous.gpsSpeedEnabled ||
+            settings.watermarkEnabled != previous.watermarkEnabled
         ) {
             startForegroundWithType()
         }
         val needsCameraRebind = !recordingRequested && (
             settings.quality != previous.quality ||
                 settings.hevcEnabled != previous.hevcEnabled ||
-                settings.gpsSpeedEnabled != previous.gpsSpeedEnabled
+                settings.gpsSpeedEnabled != previous.gpsSpeedEnabled ||
+                settings.watermarkEnabled != previous.watermarkEnabled
             )
         if (needsCameraRebind) {
             bindCamera()
@@ -657,12 +663,12 @@ class RecordingService : LifecycleService() {
         previousEffect?.close()
 
         fun createEffect(targets: Int): OverlayEffect? {
-            if (!settings.gpsSpeedEnabled) return null
+            if (!settings.gpsSpeedEnabled && !settings.watermarkEnabled) return null
             return OverlayEffect(targets, 0, mainHandler) { error ->
-                Log.e(TAG, "Speed overlay failed", error)
+                Log.e(TAG, "Overlay failed", error)
             }.also { effect ->
                 effect.setOnDrawListener { frame ->
-                    drawSpeedOverlay(frame)
+                    drawOverlays(frame)
                     true
                 }
             }
@@ -756,14 +762,7 @@ class RecordingService : LifecycleService() {
         shockDetector = null
     }
 
-    private fun drawSpeedOverlay(frame: Frame) {
-        val speed = speedKmh
-        val text = if (speed != null) {
-            getString(R.string.speed_overlay_kmh, speed)
-        } else {
-            getString(R.string.speed_no_fix)
-        }
-
+    private fun drawOverlays(frame: Frame) {
         val canvas: Canvas = frame.overlayCanvas
         canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
 
@@ -794,6 +793,19 @@ class RecordingService : LifecycleService() {
             else -> canvas.translate(crop.left.toFloat(), crop.top.toFloat())
         }
 
+        if (settings.gpsSpeedEnabled) drawSpeedBadge(canvas, displayWidth, displayHeight)
+        if (settings.watermarkEnabled) drawWatermark(canvas, displayWidth, displayHeight)
+        canvas.restore()
+    }
+
+    private fun drawSpeedBadge(canvas: Canvas, displayWidth: Int, displayHeight: Int) {
+        val speed = speedKmh
+        val text = if (speed != null) {
+            getString(R.string.speed_overlay_kmh, speed)
+        } else {
+            getString(R.string.speed_no_fix)
+        }
+
         val textSize = (displayHeight * 0.045f).coerceAtLeast(24f)
         speedTextPaint.textSize = textSize
         speedTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
@@ -811,11 +823,47 @@ class RecordingService : LifecycleService() {
         )
         canvas.drawRoundRect(background, pad, pad, speedBackgroundPaint)
         canvas.drawText(text, x, baseline, speedTextPaint)
-        canvas.restore()
+    }
+
+    private fun drawWatermark(canvas: Canvas, displayWidth: Int, displayHeight: Int) {
+        val dateTime = watermarkDate.format(Date())
+        val location = lastLocation
+        val coordinates = if (location != null) {
+            String.format(
+                Locale.US,
+                "%.5f° %s · %.5f° %s",
+                abs(location.latitude), if (location.latitude >= 0) "N" else "S",
+                abs(location.longitude), if (location.longitude >= 0) "E" else "W"
+            )
+        } else {
+            getString(R.string.speed_no_fix)
+        }
+
+        val textSize = (displayHeight * 0.032f).coerceAtLeast(16f)
+        speedTextPaint.textSize = textSize
+        speedTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
+
+        val margin = (displayWidth * 0.035f).coerceAtLeast(16f)
+        val pad = textSize * 0.35f
+        val right = displayWidth - margin
+        val baselineFirst = margin - speedTextPaint.ascent()
+        val baselineSecond = baselineFirst + textSize * 1.4f
+        val dateWidth = speedTextPaint.measureText(dateTime)
+        val coordinateWidth = speedTextPaint.measureText(coordinates)
+        val boxWidth = maxOf(dateWidth, coordinateWidth)
+        val background = RectF(
+            right - boxWidth - pad,
+            margin - pad,
+            right + pad,
+            baselineSecond + speedTextPaint.descent() + pad
+        )
+        canvas.drawRoundRect(background, pad, pad, speedBackgroundPaint)
+        canvas.drawText(dateTime, right - dateWidth, baselineFirst, speedTextPaint)
+        canvas.drawText(coordinates, right - coordinateWidth, baselineSecond, speedTextPaint)
     }
 
     private fun updateLocationUpdates() {
-        if (!settings.gpsSpeedEnabled || !hasLocationPermission()) {
+        if ((!settings.gpsSpeedEnabled && !settings.watermarkEnabled) || !hasLocationPermission()) {
             stopLocationUpdates()
             return
         }
@@ -843,6 +891,7 @@ class RecordingService : LifecycleService() {
         }
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
+                lastLocation = location
                 setSpeed(
                     if (location.hasSpeed()) {
                         (location.speed * 3.6f).coerceAtLeast(0f)
@@ -864,8 +913,11 @@ class RecordingService : LifecycleService() {
         try {
             manager.requestLocationUpdates(provider, 1_000L, 0f, listener, Looper.getMainLooper())
             manager.getLastKnownLocation(provider)?.let { location ->
-                if (location.hasSpeed() && System.currentTimeMillis() - location.time < 30_000L) {
-                    setSpeed((location.speed * 3.6f).coerceAtLeast(0f))
+                if (System.currentTimeMillis() - location.time < 30_000L) {
+                    lastLocation = location
+                    if (location.hasSpeed()) {
+                        setSpeed((location.speed * 3.6f).coerceAtLeast(0f))
+                    }
                 }
             }
             locationManager = manager
@@ -948,6 +1000,7 @@ class RecordingService : LifecycleService() {
         locationManager = null
         locationListener = null
         locationProvider = null
+        lastLocation = null
         setSpeed(null)
     }
 
@@ -1104,7 +1157,7 @@ class RecordingService : LifecycleService() {
         val type = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             var value = ServiceInfo.FOREGROUND_SERVICE_TYPE_CAMERA
             if (audioActive) value = value or ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE
-            if (settings.gpsSpeedEnabled && hasLocationPermission()) {
+            if ((settings.gpsSpeedEnabled || settings.watermarkEnabled) && hasLocationPermission()) {
                 value = value or ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION
             }
             value

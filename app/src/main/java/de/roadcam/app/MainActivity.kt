@@ -623,23 +623,6 @@ private fun DashcamHome(
                         )
                     }
                 }
-                Surface(
-                    modifier = Modifier.size(58.dp).clickable(
-                        enabled = state.cameraReady && state.snapshotAvailable,
-                        onClick = onTakeSnapshot
-                    ),
-                    shape = RoundedCornerShape(18.dp),
-                    color = Panel
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Filled.PhotoCamera,
-                            contentDescription = stringResource(R.string.snapshot_take),
-                            tint = OnPanel,
-                            modifier = Modifier.size(23.dp)
-                        )
-                    }
-                }
             }
             Spacer(Modifier.height(8.dp))
             Text(textOf(state.status), color = Muted, fontSize = 12.sp)
@@ -655,12 +638,10 @@ private fun DashcamHome(
                     onClick = { showModeDialog = true },
                     enabled = !recording
                 )
-                val used = state.clips.sumOf { it.file.length() }
-                MetricCard(
-                    stringResource(R.string.storage_card_title),
-                    Formatter.formatShortFileSize(context, used),
-                    stringResource(R.string.storage_card_clips, state.clips.size),
-                    Modifier.weight(1f)
+                SnapshotCard(
+                    Modifier.weight(1f),
+                    enabled = state.cameraReady && state.snapshotAvailable,
+                    onClick = onTakeSnapshot
                 )
             }
         }
@@ -671,6 +652,16 @@ private fun DashcamHome(
                     Text(stringResource(R.string.clips_title), color = OnPanel, fontSize = 18.sp, fontWeight = FontWeight.Bold)
                     Text(stringResource(R.string.clips_subtitle), color = Muted, fontSize = 12.sp)
                 }
+                val used = state.clips.sumOf { it.file.length() }
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(stringResource(R.string.storage_card_title), color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .8.sp)
+                    Text(
+                        Formatter.formatShortFileSize(context, used) + "  ·  " +
+                            stringResource(R.string.storage_card_clips, state.clips.size),
+                        color = OnPanel, fontSize = 13.sp, fontWeight = FontWeight.SemiBold
+                    )
+                }
+                Spacer(Modifier.width(14.dp))
                 Icon(
                     Icons.Filled.Share, contentDescription = stringResource(R.string.clips_share_all),
                     tint = if (state.clips.isEmpty()) Muted.copy(alpha = .4f) else Muted,
@@ -828,6 +819,15 @@ private fun DashcamHome(
                         draft.gpsSpeedEnabled
                     ) { enabled ->
                         draft = draft.copy(gpsSpeedEnabled = enabled)
+                        if (enabled && !hasLocationPermission) onRequestLocationPermission()
+                    }
+                    SwitchRow(
+                        stringResource(R.string.mode_watermark),
+                        if (hasLocationPermission) stringResource(R.string.mode_watermark_hint)
+                        else stringResource(R.string.mode_gps_permission),
+                        draft.watermarkEnabled
+                    ) { enabled ->
+                        draft = draft.copy(watermarkEnabled = enabled)
                         if (enabled && !hasLocationPermission) onRequestLocationPermission()
                     }
                     SwitchRow(
@@ -1732,6 +1732,49 @@ private fun MetricCard(
             Spacer(Modifier.height(7.dp))
             Text(value, color = OnPanel, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(detail, color = Muted, fontSize = 11.sp)
+        }
+    }
+}
+
+@Composable
+private fun SnapshotCard(
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val alpha = if (enabled) 1f else .5f
+    Card(
+        modifier.clickable(enabled = enabled, onClick = onClick),
+        shape = RoundedCornerShape(18.dp),
+        colors = CardDefaults.cardColors(containerColor = Panel)
+    ) {
+        Column(Modifier.padding(15.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(
+                    Icons.Filled.PhotoCamera,
+                    contentDescription = null,
+                    tint = Mint,
+                    modifier = Modifier.size(15.dp).alpha(alpha)
+                )
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(R.string.snapshot_card_title),
+                    color = Muted, fontSize = 9.sp, fontWeight = FontWeight.Bold,
+                    letterSpacing = .8.sp, modifier = Modifier.alpha(alpha)
+                )
+            }
+            Spacer(Modifier.height(7.dp))
+            Text(
+                stringResource(R.string.snapshot_take),
+                color = OnPanel, fontSize = 17.sp, fontWeight = FontWeight.Bold,
+                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.alpha(alpha)
+            )
+            Text(
+                stringResource(R.string.snapshot_card_hint),
+                color = Muted, fontSize = 11.sp,
+                modifier = Modifier.alpha(alpha)
+            )
         }
     }
 }

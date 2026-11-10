@@ -13,6 +13,7 @@ data class DashcamSettings(
     val hevcEnabled: Boolean = true,
     val audioEnabled: Boolean = false,
     val gpsSpeedEnabled: Boolean = false,
+    val watermarkEnabled: Boolean = false,
     val gSensorEnabled: Boolean = true,
     val gSensorSensitivity: GSensorSensitivity = GSensorSensitivity.MITTEL_2,
     val keepScreenOn: Boolean = true,
