@@ -14,7 +14,7 @@ data class DashcamSettings(
     val audioEnabled: Boolean = false,
     val gpsSpeedEnabled: Boolean = false,
     val gSensorEnabled: Boolean = true,
-    val gSensorSensitivity: GSensorSensitivity = GSensorSensitivity.MITTEL,
+    val gSensorSensitivity: GSensorSensitivity = GSensorSensitivity.MITTEL_2,
     val keepScreenOn: Boolean = true,
     val darkTheme: Boolean = true
 ) {

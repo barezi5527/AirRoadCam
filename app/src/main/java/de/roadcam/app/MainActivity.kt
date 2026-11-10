@@ -5,7 +5,9 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.pm.ActivityInfo
 import android.content.pm.PackageManager
+import android.content.res.Configuration
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
@@ -34,6 +36,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.aspectRatio
@@ -56,14 +59,19 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LightMode
+import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.ScreenRotation
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.VideoLibrary
 import androidx.compose.material.icons.filled.Videocam
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
@@ -95,6 +103,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
@@ -145,8 +154,10 @@ private val Alert: Color
 
 class MainActivity : ComponentActivity() {
     private val viewModel: DashcamViewModel by viewModels()
+    private val landscapeLocked = mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
             statusBarStyle = SystemBarStyle.auto(
@@ -231,6 +242,8 @@ class MainActivity : ComponentActivity() {
                     onDispose { view.keepScreenOn = false }
                 }
 
+                LaunchedEffect(Unit) { applyOrientation() }
+
                 DisposableEffect(Unit) {
                     val receiver = object : BroadcastReceiver() {
                         override fun onReceive(receiverContext: Context?, intent: Intent?) {
@@ -259,6 +272,8 @@ class MainActivity : ComponentActivity() {
                             hasAudioPermission = hasAudioPermission,
                             hasNotificationPermission = hasNotificationPermission,
                             hasLocationPermission = hasLocationPermission,
+                            landscapeLocked = landscapeLocked.value,
+                            onToggleLandscapeLock = ::toggleLandscapeLock,
                             onRequestCameraPermission = {
                                 permissionLauncher.launch(arrayOf(Manifest.permission.CAMERA))
                             },
@@ -298,6 +313,19 @@ class MainActivity : ComponentActivity() {
         viewModel.onForeground()
     }
 
+    private fun applyOrientation() {
+        requestedOrientation = if (landscapeLocked.value) {
+            ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+        } else {
+            ActivityInfo.SCREEN_ORIENTATION_FULL_SENSOR
+        }
+    }
+
+    private fun toggleLandscapeLock() {
+        landscapeLocked.value = !landscapeLocked.value
+        applyOrientation()
+    }
+
     override fun onDestroy() {
         if (isFinishing) viewModel.shutdown() else viewModel.disconnect()
         super.onDestroy()
@@ -328,12 +356,23 @@ private fun qualityLabel(quality: RecordQuality): String = stringResource(
 )
 
 @Composable
+private fun gSensorBaseName(sensitivity: GSensorSensitivity): String = stringResource(
+    R.string.gsensor_level,
+    stringResource(
+        when (sensitivity) {
+            GSensorSensitivity.NIEDRIG_1, GSensorSensitivity.NIEDRIG_2 -> R.string.gsensor_low
+            GSensorSensitivity.MITTEL_1, GSensorSensitivity.MITTEL_2 -> R.string.gsensor_medium
+            GSensorSensitivity.HOCH_1, GSensorSensitivity.HOCH_2 -> R.string.gsensor_high
+        }
+    ),
+    sensitivity.level
+)
+
+@Composable
 private fun gSensorLabel(sensitivity: GSensorSensitivity): String = stringResource(
-    when (sensitivity) {
-        GSensorSensitivity.NIEDRIG -> R.string.gsensor_low
-        GSensorSensitivity.MITTEL -> R.string.gsensor_medium
-        GSensorSensitivity.HOCH -> R.string.gsensor_high
-    }
+    R.string.gsensor_chip,
+    gSensorBaseName(sensitivity),
+    sensitivity.thresholdG
 )
 
 @Composable
@@ -343,6 +382,8 @@ private fun DashcamHome(
     hasAudioPermission: Boolean,
     hasNotificationPermission: Boolean,
     hasLocationPermission: Boolean,
+    landscapeLocked: Boolean,
+    onToggleLandscapeLock: () -> Unit,
     onRequestCameraPermission: () -> Unit,
     onRequestAudioPermission: () -> Unit,
     onRequestNotificationPermission: () -> Unit,
@@ -367,12 +408,35 @@ private fun DashcamHome(
     var showMenu by remember { mutableStateOf(false) }
     var showPermissions by remember { mutableStateOf(false) }
     var showSensorTest by remember { mutableStateOf(false) }
+    var showGSensorInfo by remember { mutableStateOf(false) }
+    var showClips by remember { mutableStateOf(false) }
 
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 28.dp),
-        verticalArrangement = Arrangement.spacedBy(18.dp)
-    ) {
+    val isLandscape =
+        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+
+    if (isLandscape) {
+        DashcamLandscape(
+            state = state,
+            hasCameraPermission = hasCameraPermission,
+            hasLocationPermission = hasLocationPermission,
+            landscapeLocked = landscapeLocked,
+            onToggleLandscapeLock = onToggleLandscapeLock,
+            onRequestCameraPermission = onRequestCameraPermission,
+            onPreviewSurface = onPreviewSurface,
+            onApplyMode = onApplyMode,
+            onSwitchCamera = onSwitchCamera,
+            onToggleRecording = onToggleRecording,
+            onProtectCurrent = onProtectCurrent,
+            onOpenSettings = { showModeDialog = true },
+            onOpenClips = { showClips = true },
+            onOpenMenu = { showMenu = true }
+        )
+    } else {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(start = 20.dp, top = 18.dp, end = 20.dp, bottom = 28.dp),
+            verticalArrangement = Arrangement.spacedBy(18.dp)
+        ) {
         item {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Box(
@@ -398,6 +462,17 @@ private fun DashcamHome(
                     }
                 }
                 Spacer(Modifier.width(4.dp))
+                IconButton(
+                    onClick = onToggleLandscapeLock,
+                    modifier = Modifier.size(40.dp)
+                ) {
+                    Icon(
+                        Icons.Filled.ScreenRotation,
+                        contentDescription = stringResource(R.string.landscape_toggle),
+                        tint = if (landscapeLocked) Mint else Muted,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
                 IconButton(
                     onClick = { showMenu = true },
                     modifier = Modifier.size(40.dp)
@@ -593,6 +668,7 @@ private fun DashcamHome(
             Text(stringResource(R.string.footer_note), color = Muted, fontSize = 11.sp, modifier = Modifier.padding(top = 2.dp))
         }
     }
+    }
 
     clipToDelete?.let { clip ->
         val isProtected = clip.protected
@@ -731,7 +807,8 @@ private fun DashcamHome(
                             options = GSensorSensitivity.entries,
                             selected = draft.gSensorSensitivity,
                             label = { gSensorLabel(it) },
-                            onSelect = { draft = draft.copy(gSensorSensitivity = it) }
+                            onSelect = { draft = draft.copy(gSensorSensitivity = it) },
+                            onInfo = { showGSensorInfo = true }
                         )
                     }
                     SwitchRow(
@@ -784,6 +861,79 @@ private fun DashcamHome(
             },
             confirmButton = {
                 TextButton(onClick = { showHelp = false }) { Text(stringResource(R.string.help_confirm), color = Mint) }
+            }
+        )
+    }
+
+    if (showGSensorInfo) {
+        AlertDialog(
+            onDismissRequest = { showGSensorInfo = false },
+            containerColor = Panel,
+            titleContentColor = OnPanel,
+            textContentColor = Muted,
+            title = { Text(stringResource(R.string.mode_gsensor_info_title)) },
+            text = {
+                Text(
+                    stringResource(R.string.mode_gsensor_info_body),
+                    color = Muted,
+                    fontSize = 12.sp
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { showGSensorInfo = false }) {
+                    Text(stringResource(R.string.mode_gsensor_info_confirm), color = Mint)
+                }
+            }
+        )
+    }
+
+    if (showClips) {
+        AlertDialog(
+            onDismissRequest = { showClips = false },
+            containerColor = Panel,
+            titleContentColor = OnPanel,
+            textContentColor = Muted,
+            title = {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(stringResource(R.string.clips_title), color = OnPanel, modifier = Modifier.weight(1f))
+                    Icon(
+                        Icons.Filled.Share,
+                        contentDescription = stringResource(R.string.clips_share_all),
+                        tint = if (state.clips.isEmpty()) Muted.copy(alpha = .4f) else Muted,
+                        modifier = Modifier.size(20.dp)
+                            .clickable(enabled = state.clips.isNotEmpty(), onClick = onShareAllClips)
+                    )
+                }
+            },
+            text = {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    if (state.clips.isEmpty()) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Filled.Videocam, null, tint = Muted)
+                            Spacer(Modifier.width(12.dp))
+                            Column {
+                                Text(stringResource(R.string.clips_empty_title), color = OnPanel, fontWeight = FontWeight.SemiBold)
+                                Text(stringResource(R.string.clips_empty_body), color = Muted, fontSize = 12.sp)
+                            }
+                        }
+                    } else {
+                        state.clips.forEachIndexed { index, clip ->
+                            if (index > 0) Spacer(Modifier.height(10.dp))
+                            ClipRow(
+                                clip = clip,
+                                onToggleProtection = onToggleClipProtection,
+                                onDelete = { clipToDelete = it },
+                                onPlay = onPlayClip,
+                                onShare = onShareClip
+                            )
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showClips = false }) {
+                    Text(stringResource(R.string.clips_close), color = Mint)
+                }
             }
         )
     }
@@ -1105,7 +1255,7 @@ private fun SensorTestDialog(
                     Text(
                         stringResource(
                             R.string.sensor_test_threshold,
-                            gSensorLabel(sensitivity),
+                            gSensorBaseName(sensitivity),
                             sensitivity.thresholdG
                         ),
                         color = Muted,
@@ -1151,10 +1301,22 @@ private fun <T> ChoiceRow(
     options: List<T>,
     selected: T,
     label: @Composable (T) -> String,
-    onSelect: (T) -> Unit
+    onSelect: (T) -> Unit,
+    onInfo: (() -> Unit)? = null
 ) {
     Column {
-        Text(title, color = OnPanel, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(title, color = OnPanel, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
+            if (onInfo != null) {
+                Spacer(Modifier.width(6.dp))
+                Icon(
+                    Icons.Filled.Info,
+                    contentDescription = stringResource(R.string.mode_gsensor_info_title),
+                    tint = Muted,
+                    modifier = Modifier.size(15.dp).clickable { onInfo() }
+                )
+            }
+        }
         Spacer(Modifier.height(6.dp))
         Row(
             modifier = Modifier.horizontalScroll(rememberScrollState()),
@@ -1207,6 +1369,233 @@ private fun SwitchRow(title: String, subtitle: String, checked: Boolean, onCheck
                 uncheckedTrackColor = Elevated
             )
         )
+    }
+}
+
+@Composable
+private fun DashcamLandscape(
+    state: DashcamUiState,
+    hasCameraPermission: Boolean,
+    hasLocationPermission: Boolean,
+    landscapeLocked: Boolean,
+    onToggleLandscapeLock: () -> Unit,
+    onRequestCameraPermission: () -> Unit,
+    onPreviewSurface: (Preview.SurfaceProvider?) -> Unit,
+    onApplyMode: (DashcamSettings) -> Unit,
+    onSwitchCamera: () -> Unit,
+    onToggleRecording: () -> Unit,
+    onProtectCurrent: () -> Unit,
+    onOpenSettings: () -> Unit,
+    onOpenClips: () -> Unit,
+    onOpenMenu: () -> Unit
+) {
+    val context = LocalContext.current
+    val recording = state.recording
+    val settings = state.settings
+    val used = state.clips.sumOf { it.file.length() }
+
+    Box(Modifier.fillMaxSize().background(Color.Black)) {
+        if (hasCameraPermission) {
+            CameraPreview(onPreviewSurface, Modifier.fillMaxSize())
+        } else {
+            Column(
+                Modifier.fillMaxSize(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
+            ) {
+                Icon(Icons.Filled.Videocam, contentDescription = null, tint = Muted, modifier = Modifier.size(38.dp))
+                Spacer(Modifier.height(10.dp))
+                Text(stringResource(R.string.camera_permission_required), color = Color.White, fontWeight = FontWeight.SemiBold)
+                TextButton(onClick = onRequestCameraPermission) {
+                    Text(stringResource(R.string.camera_permission_grant), color = Mint)
+                }
+            }
+        }
+
+        Row(
+            modifier = Modifier.align(Alignment.TopStart).padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            OverlayPill {
+                if (recording) Box(Modifier.size(7.dp).clip(CircleShape).background(Alert))
+                else Icon(Icons.Filled.CheckCircle, null, tint = Mint, modifier = Modifier.size(13.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    stringResource(if (recording) R.string.camera_recording else R.string.camera_active),
+                    color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .7.sp
+                )
+            }
+            if (settings.gpsSpeedEnabled && hasLocationPermission) {
+                OverlayPill {
+                    Icon(
+                        Icons.Filled.LocationOn,
+                        contentDescription = stringResource(R.string.landscape_gps),
+                        tint = Mint,
+                        modifier = Modifier.size(13.dp)
+                    )
+                    Spacer(Modifier.width(6.dp))
+                    Text(
+                        state.speedKmh?.let { stringResource(R.string.speed_overlay_kmh, it) }
+                            ?: stringResource(R.string.speed_no_fix),
+                        color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold
+                    )
+                }
+            }
+            OverlayPill {
+                Text(
+                    Formatter.formatShortFileSize(context, used) + " · " +
+                        stringResource(R.string.storage_card_clips, state.clips.size),
+                    color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold
+                )
+            }
+            OverlayPill {
+                val front = if (state.lensFacing == CameraSelector.LENS_FACING_FRONT) {
+                    stringResource(R.string.camera_badge_front) + " · "
+                } else ""
+                val codec = if (state.hevcActive) "HEVC" else "H.264"
+                Text(
+                    front + "${settings.quality.badge} · 30 FPS · $codec",
+                    color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Row(
+            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+            horizontalArrangement = Arrangement.spacedBy(7.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            if (state.canSwitchCamera) {
+                OverlayIconButton(
+                    icon = Icons.Filled.Cameraswitch,
+                    contentDescription = stringResource(R.string.camera_switch),
+                    enabled = !recording,
+                    onClick = onSwitchCamera
+                )
+            }
+            OverlayIconButton(
+                icon = Icons.Filled.ScreenRotation,
+                contentDescription = stringResource(R.string.landscape_toggle),
+                tint = if (landscapeLocked) Mint else Color.White,
+                onClick = onToggleLandscapeLock
+            )
+            OverlayIconButton(
+                icon = Icons.Filled.Menu,
+                contentDescription = stringResource(R.string.menu_open),
+                onClick = onOpenMenu
+            )
+            OverlayIconButton(
+                icon = if (settings.darkTheme) Icons.Filled.LightMode else Icons.Filled.DarkMode,
+                contentDescription = stringResource(
+                    if (settings.darkTheme) R.string.theme_switch_to_light else R.string.theme_switch_to_dark
+                ),
+                onClick = { onApplyMode(settings.copy(darkTheme = !settings.darkTheme)) }
+            )
+        }
+
+        Row(
+            modifier = Modifier
+                .align(Alignment.BottomStart)
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Surface(
+                modifier = Modifier.weight(1f, fill = false),
+                shape = RoundedCornerShape(9.dp),
+                color = Color.Black.copy(alpha = .58f)
+            ) {
+                Text(
+                    textOf(state.status),
+                    Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            OverlayIconButton(
+                icon = Icons.Filled.VideoLibrary,
+                contentDescription = stringResource(R.string.landscape_gallery),
+                onClick = onOpenClips
+            )
+            OverlayIconButton(
+                icon = Icons.Filled.Settings,
+                contentDescription = stringResource(R.string.landscape_settings),
+                enabled = !recording,
+                onClick = onOpenSettings
+            )
+            Surface(
+                modifier = Modifier.size(46.dp).clickable(onClick = onProtectCurrent),
+                shape = RoundedCornerShape(14.dp),
+                color = if (state.currentProtected) Mint.copy(alpha = .35f) else Color.Black.copy(alpha = .58f)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Filled.Shield,
+                        contentDescription = stringResource(R.string.protect_current),
+                        tint = if (state.currentProtected) Mint else Color.White,
+                        modifier = Modifier.size(21.dp)
+                    )
+                }
+            }
+            Button(
+                onClick = onToggleRecording,
+                enabled = state.cameraReady,
+                modifier = Modifier.height(46.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = if (recording) MaterialTheme.colorScheme.errorContainer else Mint,
+                    contentColor = if (recording) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary,
+                    disabledContainerColor = Elevated
+                )
+            ) {
+                if (!state.cameraReady && hasCameraPermission) {
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp, color = Mint)
+                } else {
+                    Box(Modifier.size(11.dp).clip(CircleShape).background(if (recording) Alert else MaterialTheme.colorScheme.onPrimary))
+                }
+                Spacer(Modifier.width(8.dp))
+                Text(
+                    stringResource(if (recording) R.string.recording_stop else R.string.recording_start),
+                    fontWeight = FontWeight.ExtraBold, letterSpacing = .4.sp, fontSize = 12.sp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun OverlayPill(content: @Composable RowScope.() -> Unit) {
+    Surface(shape = CircleShape, color = Color.Black.copy(alpha = .58f)) {
+        Row(
+            Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            content = content
+        )
+    }
+}
+
+@Composable
+private fun OverlayIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    tint: Color = Color.White
+) {
+    Surface(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(CircleShape)
+            .clickable(enabled = enabled, onClick = onClick),
+        shape = CircleShape,
+        color = Color.Black.copy(alpha = .58f)
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription, tint = tint, modifier = Modifier.size(19.dp))
+        }
     }
 }
 

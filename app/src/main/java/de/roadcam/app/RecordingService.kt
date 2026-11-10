@@ -19,6 +19,7 @@ import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.hardware.display.DisplayManager
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -30,6 +31,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
+import android.view.Display
 import androidx.camera.core.CameraEffect
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.MirrorMode
@@ -128,6 +130,7 @@ class RecordingService : LifecycleService() {
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
     private var locationProvider: String? = null
+    private var displayListener: DisplayManager.DisplayListener? = null
     @Volatile
     private var speedKmh: Float? = null
 
@@ -201,6 +204,7 @@ class RecordingService : LifecycleService() {
         activeRecording?.stop()
         stopShockMonitoring()
         stopLocationUpdates()
+        unregisterDisplayListener()
         releaseWakeLock()
         cameraProvider?.unbindAll()
         overlayEffect?.close()
@@ -533,6 +537,7 @@ class RecordingService : LifecycleService() {
 
         preview = previewUseCase
         videoCapture = capture
+        registerDisplayListener()
         updateState {
             it.copy(
                 cameraReady = true,
@@ -661,11 +666,13 @@ class RecordingService : LifecycleService() {
         }
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                speedKmh = if (location.hasSpeed()) {
-                    (location.speed * 3.6f).coerceAtLeast(0f)
-                } else {
-                    null
-                }
+                setSpeed(
+                    if (location.hasSpeed()) {
+                        (location.speed * 3.6f).coerceAtLeast(0f)
+                    } else {
+                        null
+                    }
+                )
             }
 
             @Suppress("DEPRECATION")
@@ -674,22 +681,61 @@ class RecordingService : LifecycleService() {
             override fun onProviderEnabled(provider: String) = Unit
 
             override fun onProviderDisabled(provider: String) {
-                if (provider == locationProvider) speedKmh = null
+                if (provider == locationProvider) setSpeed(null)
             }
         }
         try {
             manager.requestLocationUpdates(provider, 1_000L, 0f, listener, Looper.getMainLooper())
             manager.getLastKnownLocation(provider)?.let { location ->
                 if (location.hasSpeed() && System.currentTimeMillis() - location.time < 30_000L) {
-                    speedKmh = (location.speed * 3.6f).coerceAtLeast(0f)
+                    setSpeed((location.speed * 3.6f).coerceAtLeast(0f))
                 }
             }
             locationManager = manager
             locationListener = listener
             locationProvider = provider
         } catch (_: SecurityException) {
-            speedKmh = null
+            setSpeed(null)
         }
+    }
+
+    private fun setSpeed(value: Float?) {
+        speedKmh = value
+        updateState { it.copy(speedKmh = value) }
+    }
+
+    /**
+     * Keeps the video capture target rotation in sync with the display so that
+     * videos recorded after a device rotation are stored upright. Changes only
+     * affect new recordings; an active recording keeps its original rotation.
+     */
+    private fun registerDisplayListener() {
+        val manager = getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager ?: return
+        if (displayListener == null) {
+            val listener = object : DisplayManager.DisplayListener {
+                override fun onDisplayAdded(displayId: Int) = Unit
+
+                override fun onDisplayRemoved(displayId: Int) = Unit
+
+                override fun onDisplayChanged(displayId: Int) {
+                    if (displayId != Display.DEFAULT_DISPLAY) return
+                    val rotation = manager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: return
+                    videoCapture?.targetRotation = rotation
+                }
+            }
+            manager.registerDisplayListener(listener, mainHandler)
+            displayListener = listener
+        }
+        videoCapture?.targetRotation =
+            manager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: return
+    }
+
+    private fun unregisterDisplayListener() {
+        displayListener?.let { listener ->
+            (getSystemService(Context.DISPLAY_SERVICE) as? DisplayManager)
+                ?.unregisterDisplayListener(listener)
+        }
+        displayListener = null
     }
 
     private fun stopLocationUpdates() {
@@ -699,7 +745,7 @@ class RecordingService : LifecycleService() {
         locationManager = null
         locationListener = null
         locationProvider = null
-        speedKmh = null
+        setSpeed(null)
     }
 
     private fun hasLocationPermission(): Boolean =

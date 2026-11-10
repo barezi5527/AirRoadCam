@@ -26,8 +26,7 @@ class SettingsStore(context: Context) {
             audioEnabled = prefs.getBoolean("audioEnabled", defaults.audioEnabled),
             gpsSpeedEnabled = prefs.getBoolean("gpsSpeedEnabled", defaults.gpsSpeedEnabled),
             gSensorEnabled = prefs.getBoolean("gSensorEnabled", defaults.gSensorEnabled),
-            gSensorSensitivity = GSensorSensitivity.entries
-                .firstOrNull { it.name == prefs.getString("gSensorSensitivity", null) }
+            gSensorSensitivity = GSensorSensitivity.fromStoredName(prefs.getString("gSensorSensitivity", null))
                 ?: defaults.gSensorSensitivity,
             keepScreenOn = prefs.getBoolean("keepScreenOn", defaults.keepScreenOn),
             darkTheme = prefs.getBoolean("darkTheme", defaults.darkTheme)

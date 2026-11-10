@@ -119,12 +119,23 @@
     <string name="speed_no_fix">GPS –</string>
     <string name="mode_gsensor">G-Sensor (Erschütterung)</string>
     <string name="mode_gsensor_hint">Starke Erschütterungen erkennen und den laufenden Clip schützen</string>
-    <string name="mode_gsensor_sensitivity">Empfindlichkeit</string>
+    <string name="mode_gsensor_sensitivity">G-Sensor-Empfindlichkeit</string>
     <string name="gsensor_low">Niedrig</string>
     <string name="gsensor_medium">Mittel</string>
     <string name="gsensor_high">Hoch</string>
+    <string name="gsensor_level">%1$s %2$d</string>
+    <string name="gsensor_chip">%1$s · %2$.1f g</string>
+    <string name="mode_gsensor_info_title">Information zur G-Sensor-Empfindlichkeit</string>
+    <string name="mode_gsensor_info_body">Der G-Sensor erkennt starke Erschütterungen und Beschleunigungsänderungen und kann dadurch eine automatische Notfallaufnahme auslösen.\n\n• Niedrig: Reagiert nur auf sehr starke Erschütterungen.\n• Mittel: Ausgewogene Erkennung.\n• Hoch: Reagiert bereits auf leichte Erschütterungen.\n\nJe niedriger der eingestellte g-Wert, desto empfindlicher reagiert die Unfallerkennung.\n\nHinweis: Eine zu hohe Empfindlichkeit kann Fehlalarme verursachen.</string>
+    <string name="mode_gsensor_info_confirm">Verstanden</string>
     <string name="mode_keep_screen_on">Bildschirm anlassen</string>
     <string name="mode_keep_screen_on_hint">Display bleibt während der App-Nutzung an</string>
+
+    <string name="landscape_toggle">Querformat umschalten</string>
+    <string name="landscape_gps">GPS-Geschwindigkeit</string>
+    <string name="landscape_gallery">Aufnahmen anzeigen</string>
+    <string name="landscape_settings">Aufnahmemodus öffnen</string>
+    <string name="clips_close">Schließen</string>
 
     <string name="quality_sparsam">Sparsam</string>
     <string name="quality_ausgewogen">Ausgewogen</string>
@@ -134,6 +145,7 @@
     <string name="help_confirm">Verstanden</string>
     <string-array name="help_titles">
         <item>Kopfzeile</item>
+        <item>Querformat</item>
         <item>Kamerabild</item>
         <item>Aufnahme &amp; Schutz</item>
         <item>Aufnahmemodus</item>
@@ -142,11 +154,12 @@
         <item>Hinweis</item>
     </string-array>
     <string-array name="help_bodies">
-        <item>Logo und App-Name links. Die Pille rechts zeigt den Status: grüner Punkt „BEREIT“, roter Punkt „LIVE“ während der Aufnahme. Rechts neben dem Menü wechselt das Sonnen-/Mond-Symbol zwischen dunklem und hellem Design.</item>
+        <item>Logo und App-Name links. Die Pille rechts zeigt den Status: grüner Punkt „BEREIT“, roter Punkt „LIVE“ während der Aufnahme. Das Drehsymbol sperrt das Querformat, das Menü-Symbol öffnet das Menü, und das Sonnen-/Mond-Symbol wechselt zwischen dunklem und hellem Design.</item>
+        <item>Die App startet im Hochformat. Wird das Gerät gedreht, wechselt sie ins Querformat: Die Kamera füllt den Bildschirm, oben liegen Pills für Status, GPS-Geschwindigkeit und Speicherplatz, unten der Aufnahme-Button samt Status. Das Drehsymbol sperrt das Querformat unabhängig von der Gerätehaltung – nochmaliges Tippen kehrt zur Sensordrehung zurück. Videos, die nach einer Drehung starten, werden automatisch im richtigen Winkel gespeichert.</item>
         <item>Oben links steht „KAMERA AKTIV“ bzw. „AUFNAHME“ mit rotem Punkt. Oben rechts wechselt das Kamera-Symbol zwischen Front- und Rückkamera – nur wenn beide vorhanden sind und nicht aufgenommen wird. Unten rechts zeigt das Badge Auflösung und Bildrate, z. B. „1080p · 30 FPS“.</item>
         <item>Der große Button startet und beendet die Aufnahme. Das Schild daneben schützt den Clip: während der Aufnahme das laufende Segment, sonst die neueste Aufnahme. Geschützte Clips werden bei der automatischen Speicherbereinigung nie gelöscht. Mint = geschützt, erneut tippen hebt den Schutz auf.</item>
         <item>„AUFNAHMEMODUS“ öffnet Clip-Länge, Qualität, Aufbewahrung, Speicherlimit, Segment-Überlappung, HEVC und Ton. Außerdem lassen sich Schutz beim Start, Autostart, Ereignisaufnahme, GPS-Geschwindigkeit, automatisches Löschen alter Clips und der wachbleibende Bildschirm einstellen. Der Autostart beginnt beim Öffnen der App oder bei Stromzufuhr; die Ereignisaufnahme startet bei Erschütterung automatisch einen geschützten 60-s-Clip. GPS blendet die Geschwindigkeit in km/h in Vorschau und Aufnahme ein. Während einer Aufnahme ist die Karte gesperrt.</item>
-        <item>Play öffnet den Clip im Video-Player. Das Schloss schützt oder entsperrt einen gespeicherten Clip. Über das Teilen-Symbol lassen sich einzelne Clips oder alle Aufnahmen weitergeben. Ungeschützte Clips entfernt „Löschen“ nach einer Bestätigung endgültig.</item>
+        <item>Play öffnet den Clip im Video-Player. Das Schloss schützt oder entsperrt einen gespeicherten Clip. Über das Teilen-Symbol lassen sich einzelne Clips oder alle Aufnahmen weitergeben. Ungeschützte Clips entfernt „Löschen“ nach einer Bestätigung endgültig. Im Querformat öffnet das Galerie-Symbol die Aufnahmen als Liste.</item>
         <item>Die Aufnahme läuft über einen Vordergrunddienst weiter, wenn die App im Hintergrund ist oder das Display ausgeht. Eine dauerhafte Benachrichtigung zeigt den Zustand und bietet einen Stopp-Button. Audio ist standardmäßig aus und benötigt die Mikrofonberechtigung. Der G-Sensor erkennt starke Erschütterungen und schützt den laufenden Clip automatisch vor dem Überschreiben.</item>
         <item>Aufnahmen bleiben lokal auf dem Gerät. GPS und Audio sind optional. Beachte die rechtlichen Regeln für dauerhafte Aufzeichnungen im öffentlichen Verkehr.</item>
     </string-array>
