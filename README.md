@@ -1,4 +1,4 @@
-# RoadCam
+# Air-RoadCam
 
 Native Android-Dashcam-App mit Kotlin, Jetpack Compose und CameraX.
 
@@ -25,3 +25,9 @@ Alle Aufnahmen bleiben lokal auf dem Gerät. Es werden keine Routen oder Standor
 Projekt in Android Studio öffnen und mit einem installierten Android SDK (API 35/36) synchronisieren. Voraussetzung ist ein JDK, das von der verwendeten Android-Gradle-Plugin-Version unterstützt wird.
 
 Release-Builds werden über eine lokale, nicht eingecheckte `keystore.properties` signiert. Ohne diese Datei lässt sich die App weiterhin als Debug-Build bauen.
+
+## Lizenz
+
+Der Quellcode ist zur Einsicht öffentlich zugänglich („source available“). Die Nutzung und Weitergabe ist nur für nichtkommerzielle Zwecke unter der [PolyForm Noncommercial License 1.0.0](LICENSE) gestattet.
+
+Für kommerzielle Nutzung, den Einsatz des Codes als Basis eigener Produkte oder Lizenzanfragen wende dich per Issue oder E-Mail an den Repositoriums-Inhaber.
