@@ -41,6 +41,7 @@ class UpdateCheckerTest {
     @Test
     fun comparesVersionSegmentsNumerically() {
         assertTrue(UpdateChecker.isNewer("1.0", "v1.1-release"))
+        assertTrue(UpdateChecker.isNewer("1.1", "v1.1.1-release"))
         assertTrue(UpdateChecker.isNewer("1.9", "1.10"))
         assertFalse(UpdateChecker.isNewer("1.1", "v1.1-release"))
         assertFalse(UpdateChecker.isNewer("1.2", "v1.1-release"))
