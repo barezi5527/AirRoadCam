@@ -8,9 +8,9 @@ class GSensorSensitivityTest {
 
     @Test
     fun `legacy names map to same threshold`() {
-        assertEquals(2.5f, GSensorSensitivity.fromStoredName("NIEDRIG")?.thresholdG)
-        assertEquals(1.5f, GSensorSensitivity.fromStoredName("MITTEL")?.thresholdG)
-        assertEquals(1.0f, GSensorSensitivity.fromStoredName("HOCH")?.thresholdG)
+        assertEquals(4.0f, GSensorSensitivity.fromStoredName("NIEDRIG")?.thresholdG)
+        assertEquals(2.5f, GSensorSensitivity.fromStoredName("MITTEL")?.thresholdG)
+        assertEquals(1.5f, GSensorSensitivity.fromStoredName("HOCH")?.thresholdG)
     }
 
     @Test
@@ -21,8 +21,17 @@ class GSensorSensitivityTest {
     }
 
     @Test
+    fun `numeric thresholds map to nearest sensitivity`() {
+        assertEquals(GSensorSensitivity.NIEDRIG_1, GSensorSensitivity.fromStoredName("3.5"))
+        assertEquals(GSensorSensitivity.NIEDRIG_2, GSensorSensitivity.fromStoredName("3.0"))
+        assertEquals(GSensorSensitivity.HOCH_2, GSensorSensitivity.fromStoredName("1.0"))
+    }
+
+    @Test
     fun `unknown names return null`() {
         assertNull(GSensorSensitivity.fromStoredName("GAR NICHT"))
+        assertNull(GSensorSensitivity.fromStoredName("NaN"))
+        assertNull(GSensorSensitivity.fromStoredName("-1"))
         assertNull(GSensorSensitivity.fromStoredName(null))
     }
 

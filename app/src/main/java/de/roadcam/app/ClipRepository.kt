@@ -111,6 +111,15 @@ class ClipRepository(
         return PruneResult(removed, total)
     }
 
+    fun deleteAllUnprotected(currentFile: File? = null): PruneResult {
+        val protected = protectionStore.protectedNames()
+        val removed = clipFiles()
+            .filter { it.name !in protected && it != currentFile }
+            .filter { it.delete() }
+            .onEach { removeProtected(it.name) }
+        return PruneResult(removed, totalSize())
+    }
+
     private fun removeExpired(retentionMillis: Long, currentFile: File?): List<File> {
         val protected = protectionStore.protectedNames()
         val cutoff = clock() - retentionMillis

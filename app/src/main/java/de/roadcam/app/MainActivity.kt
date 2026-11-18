@@ -62,6 +62,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Cameraswitch
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.LightMode
@@ -322,7 +323,8 @@ class MainActivity : ComponentActivity() {
                             onDeleteClip = viewModel::deleteClip,
                             onPlayClip = viewModel::playClip,
                             onShareClip = viewModel::shareClip,
-                            onShareAllClips = { viewModel.shareClips(state.clips) }
+                            onShareAllClips = { viewModel.shareClips(state.clips) },
+                            onDeleteAllUnprotected = viewModel::deleteAllUnprotected
                         )
                     }
                 }
@@ -429,12 +431,14 @@ private fun DashcamHome(
     onDeleteClip: (DashClip) -> Unit,
     onPlayClip: (DashClip) -> Unit,
     onShareClip: (DashClip) -> Unit,
-    onShareAllClips: () -> Unit
+    onShareAllClips: () -> Unit,
+    onDeleteAllUnprotected: () -> Unit
 ) {
     val context = LocalContext.current
     val recording = state.recording
     val settings = state.settings
     var clipToDelete by remember { mutableStateOf<DashClip?>(null) }
+    var confirmDeleteAll by remember { mutableStateOf(false) }
     var showModeDialog by remember { mutableStateOf(false) }
     var showHelp by remember { mutableStateOf(false) }
     var showMenu by remember { mutableStateOf(false) }
@@ -679,6 +683,16 @@ private fun DashcamHome(
                     tint = if (state.clips.isEmpty()) Muted.copy(alpha = .4f) else Muted,
                     modifier = Modifier.size(20.dp).clickable(enabled = state.clips.isNotEmpty(), onClick = onShareAllClips)
                 )
+                val hasUnprotected = state.clips.any { !it.protected }
+                Spacer(Modifier.width(12.dp))
+                Icon(
+                    Icons.Filled.DeleteForever, contentDescription = stringResource(R.string.clips_delete_all),
+                    tint = if (hasUnprotected) Alert else Muted.copy(alpha = .4f),
+                    modifier = Modifier.size(20.dp).clickable(
+                        enabled = hasUnprotected,
+                        onClick = { confirmDeleteAll = true }
+                    )
+                )
             }
         }
 
@@ -737,6 +751,30 @@ private fun DashcamHome(
             },
             dismissButton = {
                 TextButton(onClick = { clipToDelete = null }) { Text(stringResource(R.string.dialog_cancel), color = Muted) }
+            }
+        )
+    }
+
+    if (confirmDeleteAll) {
+        AlertDialog(
+            onDismissRequest = { confirmDeleteAll = false },
+            containerColor = Panel,
+            titleContentColor = OnPanel,
+            textContentColor = Muted,
+            title = { Text(stringResource(R.string.dialog_delete_all_title)) },
+            text = { Text(stringResource(R.string.dialog_delete_all_body, state.clips.count { !it.protected })) },
+            confirmButton = {
+                TextButton(onClick = {
+                    onDeleteAllUnprotected()
+                    confirmDeleteAll = false
+                }) {
+                    Text(stringResource(R.string.dialog_delete_confirm), color = Alert)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDeleteAll = false }) {
+                    Text(stringResource(R.string.dialog_cancel), color = Muted)
+                }
             }
         )
     }
@@ -969,6 +1007,17 @@ private fun DashcamHome(
                         tint = if (state.clips.isEmpty()) Muted.copy(alpha = .4f) else Muted,
                         modifier = Modifier.size(20.dp)
                             .clickable(enabled = state.clips.isNotEmpty(), onClick = onShareAllClips)
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    val hasUnprotected = state.clips.any { !it.protected }
+                    Icon(
+                        Icons.Filled.DeleteForever,
+                        contentDescription = stringResource(R.string.clips_delete_all),
+                        tint = if (hasUnprotected) Alert else Muted.copy(alpha = .4f),
+                        modifier = Modifier.size(20.dp).clickable(
+                            enabled = hasUnprotected,
+                            onClick = { confirmDeleteAll = true }
+                        )
                     )
                 }
             },
@@ -1752,7 +1801,7 @@ private fun CameraPreview(
     val context = LocalContext.current
     val previewView = remember {
         PreviewView(context).apply {
-            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+            implementationMode = PreviewView.ImplementationMode.PERFORMANCE
             scaleType = PreviewView.ScaleType.FILL_CENTER
         }
     }

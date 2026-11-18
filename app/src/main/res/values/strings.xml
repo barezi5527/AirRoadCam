@@ -67,6 +67,7 @@
     <string name="clips_title">Letzte Aufnahmen</string>
     <string name="clips_subtitle">Lokal auf diesem Gerät</string>
     <string name="clips_share_all">Alle Aufnahmen teilen</string>
+    <string name="clips_delete_all">Alle ungeschützten Aufnahmen löschen</string>
     <string name="clips_empty_title">Noch keine Aufnahmen</string>
     <string name="clips_empty_body">Deine Clips und Fotos erscheinen nach der ersten Fahrt hier.</string>
     <string name="clip_play">Clip abspielen</string>
@@ -80,6 +81,8 @@
     <string name="dialog_delete_title">Aufnahme löschen?</string>
     <string name="dialog_delete_body">Die Aufnahme wird endgültig vom Gerät entfernt.</string>
     <string name="dialog_delete_confirm">Endgültig löschen</string>
+    <string name="dialog_delete_all_title">Alle ungeschützten Aufnahmen löschen?</string>
+    <string name="dialog_delete_all_body">%1$d Aufnahmen werden endgültig vom Gerät entfernt. Geschützte Aufnahmen und die laufende Aufnahme bleiben erhalten.</string>
     <string name="dialog_protected_title">Aufnahme ist geschützt</string>
     <string name="dialog_protected_body">Geschützte Aufnahmen werden nicht automatisch gelöscht. Hebe zuerst den Schutz auf, um diese Aufnahme löschen zu können.</string>
     <string name="dialog_protected_confirm">Schutz aufheben</string>
@@ -165,7 +168,7 @@
         <item>Oben links steht „KAMERA AKTIV“ bzw. „AUFNAHME“ mit rotem Punkt. Oben rechts wechselt das Kamera-Symbol zwischen Front- und Rückkamera – nur wenn beide vorhanden sind und nicht aufgenommen wird. Unten rechts zeigt das Badge Auflösung und Bildrate, z. B. „720p · 30 FPS“.</item>
         <item>Der große Button startet und beendet die Aufnahme. Das Schild daneben schützt die Aufnahme: während der Aufnahme das laufende Segment, sonst die neueste Aufnahme – auch Fotos. Geschützte Aufnahmen werden bei der automatischen Speicherbereinigung nie gelöscht. Mint = geschützt, erneut tippen hebt den Schutz auf. Der Foto-Button nimmt jederzeit ein Standbild auf, ohne die laufende Aufnahme zu unterbrechen; das Foto erscheint anschließend zusammen mit den Clips in der Liste und unterliegt derselben Speicherbereinigung.</item>
         <item>„AUFNAHMEMODUS“ öffnet Clip-Länge, Qualität, Aufbewahrung, Speicherlimit, Segment-Überlappung, HEVC, Ton und Display-Timeout. Außerdem lassen sich Schutz beim Start, Autostart, Ereignisaufnahme, GPS-Geschwindigkeit, Wasserzeichen und automatisches Löschen alter Aufnahmen einstellen. Standard ist 720p (Sparsam); 1080p-Modi erhöhen Detailtreue und Wärmeentwicklung. Der Autostart beginnt beim Öffnen der App oder bei Stromzufuhr; die Ereignisaufnahme startet bei Erschütterung automatisch einen geschützten 60-s-Clip. GPS blendet die Geschwindigkeit in km/h in Vorschau und Aufnahme ein. Das Wasserzeichen brennt Datum, Uhrzeit und GPS-Koordinaten dauerhaft in Videos und Fotos ein – ohne Standortberechtigung erscheint nur Datum und Uhrzeit. Während einer Aufnahme ist die Karte gesperrt.</item>
-        <item>Play öffnet Clips im Video-Player und Fotos im Bildbetrachter. Das Schloss schützt oder entsperrt eine gespeicherte Aufnahme. Über das Teilen-Symbol lassen sich einzelne Aufnahmen oder alle weitergeben. Ungeschützte Aufnahmen entfernt „Löschen“ nach einer Bestätigung endgültig. Im Querformat öffnet das Galerie-Symbol die Aufnahmen als Liste.</item>
+        <item>Play öffnet Clips im Video-Player und Fotos im Bildbetrachter. Das Schloss schützt oder entsperrt eine gespeicherte Aufnahme. Über das Teilen-Symbol lassen sich einzelne Aufnahmen oder alle weitergeben. Ungeschützte Aufnahmen entfernt „Löschen“ nach einer Bestätigung endgültig. Das Papierkorb-Symbol löscht alle ungeschützten Aufnahmen auf einmal; geschützte Clips und die laufende Aufnahme bleiben erhalten. Im Querformat öffnet das Galerie-Symbol die Aufnahmen als Liste.</item>
         <item>Die Aufnahme läuft über einen Vordergrunddienst weiter, wenn die App im Hintergrund ist oder das Display ausgeht. Eine dauerhafte Benachrichtigung zeigt den Zustand und bietet einen Stopp-Button. Audio ist standardmäßig aus und benötigt die Mikrofonberechtigung. Der G-Sensor erkennt starke Erschütterungen und schützt den laufenden Clip automatisch vor dem Überschreiben.</item>
         <item>Kamera, Display und Video-Encoder erzeugen bei Dauerbetrieb Wärme. Das ist normal, kann das Gerät aber drosseln. Standard ist 720p; höhere Qualität und HEVC kosten mehr Rechenleistung. Über „Display-Timeout“ im Aufnahmemodus lässt sich das Display nach einigen Minuten abschalten, während die Aufnahme im Hintergrund weiterläuft. Vermeide direkte Sonne und gleichzeitiges Laden, wenn das Gerät sehr heiß wird.</item>
         <item>Aufnahmen bleiben lokal auf dem Gerät. GPS und Audio sind optional. Beachte die rechtlichen Regeln für dauerhafte Aufzeichnungen im öffentlichen Verkehr.</item>
@@ -182,6 +185,7 @@
     <string name="status_recording_error">Aufnahmefehler · bitte Kamera prüfen</string>
     <string name="status_permission_required">Kameraberechtigung erforderlich</string>
     <string name="status_no_clip">Noch keine Aufnahme vorhanden</string>
+    <string name="status_unprotected_deleted">%1$d ungeschützte Aufnahmen gelöscht</string>
     <string name="status_clip_protected">Aufnahme ist geschützt – Schutz zuerst aufheben</string>
     <string name="status_shock_protected">Erschütterung erkannt (%1$.1f g) · Clip geschützt</string>
     <string name="status_event_recording">Erschütterung erkannt (%1$.1f g) · Notfallaufnahme läuft</string>

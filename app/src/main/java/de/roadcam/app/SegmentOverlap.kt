@@ -44,19 +44,6 @@ object SegmentOverlap {
             prefixByMime[previousVideo.mime] = videoSamples.map {
                 it.copy(presentationTimeUs = it.presentationTimeUs - videoBaseUs)
             }
-            previousTracks
-                .filter { it.mime.startsWith("audio/") }
-                .forEach { audio ->
-                    val samples = collect(
-                        previousExtractor,
-                        audio.index,
-                        seekToUs = videoBaseUs,
-                        minTimeUs = videoBaseUs
-                    )
-                    prefixByMime[audio.mime] = samples.map {
-                        it.copy(presentationTimeUs = it.presentationTimeUs - videoBaseUs)
-                    }
-                }
 
             val prefixEndUs = prefixByMime.values.flatten()
                 .maxOfOrNull { it.presentationTimeUs }

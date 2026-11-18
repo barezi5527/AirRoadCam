@@ -277,4 +277,24 @@ class ClipRepositoryTest {
         assertFalse(expiredPhoto.exists())
         assertTrue(recentVideo.exists())
     }
+
+    @Test
+    fun `deleteAllUnprotected keeps protected clips and current file`() {
+        val directory = folder.newFolder()
+        val video = clip(directory, "video.mp4")
+        val photo = clip(directory, "photo.jpg")
+        val protected = clip(directory, "protected.mp4")
+        val current = clip(directory, "current.mp4")
+        val note = clip(directory, "note.txt")
+        val repository = repository(directory, FakeProtectionStore(setOf(protected.name)))
+
+        val result = repository.deleteAllUnprotected(current)
+
+        assertEquals(setOf(video, photo), result.removed.toSet())
+        assertFalse(video.exists())
+        assertFalse(photo.exists())
+        assertTrue(protected.exists())
+        assertTrue(current.exists())
+        assertTrue(note.exists())
+    }
 }

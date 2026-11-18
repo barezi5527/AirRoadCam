@@ -11,14 +11,16 @@ import kotlin.math.sqrt
 class ShockDetector(
     private val thresholdG: Float,
     private val removeGravity: Boolean = true,
-    private val cooldownMs: Long = 3_000L,
+    private val cooldownMs: Long = 8_000L,
     private val gravityFilterAlpha: Float = 0.95f,
+    private val minConsecutiveSamples: Int = 2,
     private val onSample: (Float) -> Unit = {},
     private val onShock: (Float) -> Unit
 ) {
     private val gravity = FloatArray(3)
     private var initialized = false
     private var lastShockMs: Long? = null
+    private var consecutiveAboveThreshold = 0
 
     fun onAcceleration(x: Float, y: Float, z: Float, timestampMs: Long) {
         val linear = if (removeGravity) {
@@ -42,7 +44,13 @@ class ShockDetector(
         )
         val forceG = magnitude / GRAVITY
         onSample(forceG)
-        if (forceG < thresholdG) return
+        if (forceG < thresholdG) {
+            consecutiveAboveThreshold = 0
+            return
+        }
+
+        consecutiveAboveThreshold++
+        if (consecutiveAboveThreshold < minConsecutiveSamples.coerceAtLeast(1)) return
 
         val previous = lastShockMs
         if (previous != null && timestampMs - previous < cooldownMs) return

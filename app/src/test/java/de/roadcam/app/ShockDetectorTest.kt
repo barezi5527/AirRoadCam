@@ -17,6 +17,7 @@ class ShockDetectorTest {
 
         detector.onAcceleration(0f, 0f, 0f, 0L)
         detector.onAcceleration(20f, 0f, 0f, 100L)
+        detector.onAcceleration(20f, 0f, 0f, 120L)
 
         assertEquals(1, forces.size)
         assertTrue(forces.first() > 1.5f)
@@ -83,7 +84,24 @@ class ShockDetectorTest {
             detector.onAcceleration(0f, 0f, ShockDetector.GRAVITY, index * 20L)
         }
         detector.onAcceleration(25f, 0f, ShockDetector.GRAVITY, 500L)
+        detector.onAcceleration(25f, 0f, ShockDetector.GRAVITY, 520L)
 
         assertEquals(1, forces.size)
+    }
+
+    @Test
+    fun `single spike above threshold is ignored`() {
+        val forces = mutableListOf<Float>()
+        val detector = ShockDetector(
+            thresholdG = 1.5f,
+            removeGravity = false,
+            onShock = { forces += it }
+        )
+
+        detector.onAcceleration(0f, 0f, 0f, 0L)
+        detector.onAcceleration(20f, 0f, 0f, 100L)
+        detector.onAcceleration(0f, 0f, 0f, 120L)
+
+        assertTrue(forces.isEmpty())
     }
 }

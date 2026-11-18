@@ -129,6 +129,7 @@ class DashcamViewModel(application: Application) : AndroidViewModel(application)
     fun toggleCurrentProtection() = _service.value?.toggleCurrentProtection() ?: Unit
     fun toggleClipProtection(clip: DashClip) = _service.value?.toggleClipProtection(clip) ?: Unit
     fun deleteClip(clip: DashClip) = _service.value?.deleteClip(clip) ?: Unit
+    fun deleteAllUnprotected() = _service.value?.deleteAllUnprotected() ?: Unit
     fun switchCamera() = _service.value?.switchCamera() ?: Unit
     fun takeSnapshot() = _service.value?.takeSnapshot() ?: Unit
 

@@ -27,9 +27,11 @@ import android.os.Build
 import android.os.Bundle
 import android.os.Environment
 import android.os.Handler
+import android.os.HandlerThread
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
+import android.util.Size
 import android.view.Display
 import android.view.Surface
 import androidx.camera.core.CameraEffect
@@ -85,9 +87,7 @@ class RecordingService : LifecycleService() {
         private const val NOTIFICATION_ID = 42
         private const val EVENT_RECORDING_MS = 60_000L
         private const val STATUS_RESTORE_MS = 2_500L
-        private const val WATERMARK_SHIFT_FRACTION = 0.20f
         private const val PORTRAIT_WATERMARK_SHIFT_FRACTION = 0.09f
-        private const val SPEED_BADGE_LEFT_FRACTION = 0.10f
         private const val SPEED_BADGE_TEXT_SIZE_DP = 30f
         private const val PORTRAIT_WATERMARK_TOP_FRACTION = 0.25f
         private const val PORTRAIT_SPEED_BADGE_BASELINE_FRACTION = 0.74f
@@ -106,6 +106,8 @@ class RecordingService : LifecycleService() {
 
     private val binder = LocalBinder()
     private val mainHandler = Handler(Looper.getMainLooper())
+    private val overlayThread = HandlerThread("roadcam-overlay").apply { start() }
+    private val overlayHandler = Handler(overlayThread.looper)
     private val overlapExecutor = Executors.newSingleThreadExecutor()
     private val snapshotExecutor = Executors.newSingleThreadExecutor()
     private val _state = MutableStateFlow(DashcamUiState())
@@ -190,6 +192,15 @@ class RecordingService : LifecycleService() {
     @Volatile
     private var lastLocation: Location? = null
     private val watermarkDate = SimpleDateFormat("dd.MM.yyyy · HH:mm:ss", Locale.GERMANY)
+    private var overlayTextUpdatedAtMs = 0L
+    private var overlayTextDirty = true
+    private var cachedSpeedText = ""
+    private var cachedSpeedTextSize = -1f
+    private var cachedDateTime = ""
+    private var cachedCoordinates = ""
+    private var cachedDateWidth = 0f
+    private var cachedCoordinateWidth = 0f
+    private var cachedWatermarkTextSize = -1f
 
     private val shockListener = object : SensorEventListener {
         override fun onSensorChanged(event: SensorEvent) {
@@ -269,6 +280,8 @@ class RecordingService : LifecycleService() {
         cameraProvider?.unbindAll()
         overlayEffect?.close()
         overlayEffect = null
+        overlayHandler.removeCallbacksAndMessages(null)
+        overlayThread.quitSafely()
         imageCapture = null
         overlapExecutor.shutdown()
         snapshotExecutor.shutdown()
@@ -384,6 +397,12 @@ class RecordingService : LifecycleService() {
         }
     }
 
+    fun deleteAllUnprotected() {
+        val count = repository.deleteAllUnprotected(currentFile).removed.size
+        refreshClips()
+        setStatus(UiText(R.string.status_unprotected_deleted, count))
+    }
+
     fun switchCamera() {
         if (recordingRequested || !canSwitchCamera) return
         lensFacing = if (lensFacing == CameraSelector.LENS_FACING_BACK) {
@@ -396,9 +415,8 @@ class RecordingService : LifecycleService() {
 
     /**
      * Captures a photo next to the video clips. The photo is taken with a
-     * dedicated ImageCapture use case at the highest resolution the camera
-     * supports for the video's 16:9 aspect ratio, so it never interrupts an
-     * active recording.
+     * dedicated ImageCapture use case at a bounded 16:9 resolution, so it
+     * never interrupts an active recording.
      */
     fun takeSnapshot() {
         val capture = imageCapture
@@ -661,7 +679,12 @@ class RecordingService : LifecycleService() {
             .setResolutionSelector(
                 ResolutionSelector.Builder()
                     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
-                    .setResolutionStrategy(ResolutionStrategy.HIGHEST_AVAILABLE_STRATEGY)
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(1920, 1080),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                        )
+                    )
                     .build()
             )
             .apply { displayRotation?.let { setTargetRotation(it) } }
@@ -673,7 +696,7 @@ class RecordingService : LifecycleService() {
 
         fun createEffect(targets: Int): OverlayEffect? {
             if (!settings.gpsSpeedEnabled && !settings.watermarkEnabled) return null
-            return OverlayEffect(targets, 0, mainHandler) { error ->
+            return OverlayEffect(targets, 0, overlayHandler) { error ->
                 Log.e(TAG, "Overlay failed", error)
             }.also { effect ->
                 effect.setOnDrawListener { frame ->
@@ -836,38 +859,22 @@ class RecordingService : LifecycleService() {
             else -> canvas.translate(left.toFloat(), top.toFloat())
         }
 
+        val now = System.currentTimeMillis()
+        if (now - overlayTextUpdatedAtMs >= 1_000L) {
+            refreshOverlayText()
+            overlayTextUpdatedAtMs = now
+        }
+
         if (settings.gpsSpeedEnabled) drawSpeedBadge(canvas, displayWidth, displayHeight)
         if (settings.watermarkEnabled) drawWatermark(canvas, displayWidth, displayHeight)
+        overlayTextDirty = false
         canvas.restore()
     }
 
-    private fun drawSpeedBadge(canvas: Canvas, displayWidth: Int, displayHeight: Int) {
-        val speed = speedKmh
-        val text = if (speed != null) {
-            getString(R.string.speed_overlay_kmh, speed)
-        } else {
-            getString(R.string.speed_no_fix)
-        }
-
-        val base = max(displayWidth, displayHeight)
-        val textSize = SPEED_BADGE_TEXT_SIZE_DP * resources.displayMetrics.density
-        speedTextPaint.textSize = textSize
-        speedTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
-
-        val margin = (base * 0.035f).coerceAtLeast(16f)
-        val x = (displayWidth * SPEED_BADGE_LEFT_FRACTION).coerceAtLeast(margin)
-        val baseline = if (displayHeight > displayWidth) {
-            displayHeight * PORTRAIT_SPEED_BADGE_BASELINE_FRACTION
-        } else {
-            displayHeight - margin - speedTextPaint.descent()
-        }
-        canvas.drawText(text, x, baseline, speedTextPaint)
-    }
-
-    private fun drawWatermark(canvas: Canvas, displayWidth: Int, displayHeight: Int) {
-        val dateTime = watermarkDate.format(Date())
+    private fun refreshOverlayText() {
+        cachedDateTime = watermarkDate.format(Date())
         val location = lastLocation
-        val coordinates = if (location != null) {
+        cachedCoordinates = if (location != null) {
             String.format(
                 Locale.US,
                 "%.5f° %s · %.5f° %s",
@@ -877,30 +884,65 @@ class RecordingService : LifecycleService() {
         } else {
             getString(R.string.watermark_no_fix)
         }
+        val speed = speedKmh
+        cachedSpeedText = if (speed != null) {
+            getString(R.string.speed_overlay_kmh, speed)
+        } else {
+            getString(R.string.speed_no_fix)
+        }
+        overlayTextDirty = true
+    }
 
+    private fun drawSpeedBadge(canvas: Canvas, displayWidth: Int, displayHeight: Int) {
+        val base = max(displayWidth, displayHeight)
+        val textSize = SPEED_BADGE_TEXT_SIZE_DP * resources.displayMetrics.density
+        if (overlayTextDirty || cachedSpeedTextSize != textSize) {
+            speedTextPaint.textSize = textSize
+            speedTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
+            cachedSpeedTextSize = textSize
+        }
+
+        val margin = (base * 0.035f).coerceAtLeast(16f)
+        val x = (displayWidth * 0.035f).coerceAtLeast(margin)
+        val baseline = if (displayHeight > displayWidth) {
+            displayHeight * PORTRAIT_SPEED_BADGE_BASELINE_FRACTION
+        } else {
+            displayHeight - margin - speedTextPaint.descent()
+        }
+        canvas.drawText(cachedSpeedText, x, baseline, speedTextPaint)
+    }
+
+    private fun drawWatermark(canvas: Canvas, displayWidth: Int, displayHeight: Int) {
         val base = max(displayWidth, displayHeight)
         val textSize = (base * 0.020f).coerceAtLeast(12f)
-        watermarkTextPaint.textSize = textSize
-        watermarkTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
+        if (overlayTextDirty || cachedWatermarkTextSize != textSize) {
+            watermarkTextPaint.textSize = textSize
+            watermarkTextPaint.setShadowLayer(textSize * 0.10f, 0f, 0f, Color.BLACK)
+            cachedWatermarkTextSize = textSize
+            cachedDateWidth = watermarkTextPaint.measureText(cachedDateTime)
+            cachedCoordinateWidth = watermarkTextPaint.measureText(cachedCoordinates)
+        }
 
         val margin = (base * 0.035f).coerceAtLeast(16f)
         val horizontalMargin = (displayWidth * 0.035f).coerceAtLeast(16f)
-        val shift = if (displayHeight > displayWidth) {
-            PORTRAIT_WATERMARK_SHIFT_FRACTION
+        val right = if (displayHeight > displayWidth) {
+            displayWidth - horizontalMargin - displayWidth * PORTRAIT_WATERMARK_SHIFT_FRACTION
         } else {
-            WATERMARK_SHIFT_FRACTION
+            displayWidth - horizontalMargin
         }
-        val right = displayWidth - horizontalMargin - displayWidth * shift
         val baselineFirst = if (displayHeight > displayWidth) {
             displayHeight * PORTRAIT_WATERMARK_TOP_FRACTION - watermarkTextPaint.ascent()
         } else {
             margin - watermarkTextPaint.ascent()
         }
         val baselineSecond = baselineFirst + textSize * 1.4f
-        val dateWidth = watermarkTextPaint.measureText(dateTime)
-        val coordinateWidth = watermarkTextPaint.measureText(coordinates)
-        canvas.drawText(dateTime, right - dateWidth, baselineFirst, watermarkTextPaint)
-        canvas.drawText(coordinates, right - coordinateWidth, baselineSecond, watermarkTextPaint)
+        canvas.drawText(cachedDateTime, right - cachedDateWidth, baselineFirst, watermarkTextPaint)
+        canvas.drawText(
+            cachedCoordinates,
+            right - cachedCoordinateWidth,
+            baselineSecond,
+            watermarkTextPaint
+        )
     }
 
     private fun updateLocationUpdates() {
@@ -994,6 +1036,7 @@ class RecordingService : LifecycleService() {
                 override fun onDisplayChanged(displayId: Int) {
                     if (displayId != Display.DEFAULT_DISPLAY) return
                     val rotation = manager.getDisplay(Display.DEFAULT_DISPLAY)?.rotation ?: return
+                    preview?.targetRotation = rotation
                     videoCapture?.targetRotation = rotation
                     imageCapture?.targetRotation = rotation
                     if (rotation == cameraRotation) return
@@ -1011,6 +1054,7 @@ class RecordingService : LifecycleService() {
             displayListener = listener
         }
         currentDisplayRotation()?.let { rotation ->
+            preview?.targetRotation = rotation
             videoCapture?.targetRotation = rotation
             imageCapture?.targetRotation = rotation
         }
