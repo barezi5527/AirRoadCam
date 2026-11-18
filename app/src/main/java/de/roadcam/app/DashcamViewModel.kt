@@ -11,7 +11,9 @@ import androidx.camera.core.Preview
 import androidx.core.content.FileProvider
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -21,13 +23,18 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class DashcamViewModel(application: Application) : AndroidViewModel(application) {
 
     private val settingsStore = SettingsStore(application)
+    private val updatePrefs = application.getSharedPreferences("updates", Context.MODE_PRIVATE)
     private val _settings = MutableStateFlow(settingsStore.load())
     val settings: StateFlow<DashcamSettings> = _settings.asStateFlow()
+
+    private val _update = MutableStateFlow<GitHubRelease?>(null)
+    val update: StateFlow<GitHubRelease?> = _update.asStateFlow()
 
     private val _service = MutableStateFlow<RecordingService?>(null)
     private var previewProvider: Preview.SurfaceProvider? = null
@@ -63,6 +70,29 @@ class DashcamViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             uiState.collect { maybeAutoStart() }
         }
+        viewModelScope.launch {
+            delay(2_000L)
+            val release = withContext(Dispatchers.IO) {
+                UpdateChecker.latestRelease(BuildConfig.VERSION_NAME)
+            }
+            if (release != null && updatePrefs.getString("dismissed", null) != release.tag) {
+                _update.value = release
+            }
+        }
+    }
+
+    fun dismissUpdate() {
+        _update.value?.let { updatePrefs.edit().putString("dismissed", it.tag).apply() }
+        _update.value = null
+    }
+
+    fun openUpdate() {
+        val url = _update.value?.apkUrl ?: return
+        val context = getApplication<Application>()
+        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+        runCatching { context.startActivity(intent) }
+        _update.value = null
     }
 
     fun onForeground() {

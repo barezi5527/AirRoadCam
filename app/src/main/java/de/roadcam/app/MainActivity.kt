@@ -186,6 +186,7 @@ class MainActivity : ComponentActivity() {
             WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
         setContent {
             val state by viewModel.uiState.collectAsStateWithLifecycle()
+            val update by viewModel.update.collectAsStateWithLifecycle()
             RoadCamTheme(darkTheme = state.settings.darkTheme) {
                 val context = LocalContext.current
                 var hasCameraPermission by remember {
@@ -328,6 +329,13 @@ class MainActivity : ComponentActivity() {
                         )
                     }
                 }
+                update?.let { release ->
+                    UpdateDialog(
+                        release = release,
+                        onDismiss = viewModel::dismissUpdate,
+                        onDownload = viewModel::openUpdate
+                    )
+                }
             }
         }
     }
@@ -378,6 +386,40 @@ private fun notificationPermissionGranted(context: Context): Boolean =
 private fun locationPermissionGranted(context: Context): Boolean =
     hasPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) ||
         hasPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION)
+
+@Composable
+private fun UpdateDialog(
+    release: GitHubRelease,
+    onDismiss: () -> Unit,
+    onDownload: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.update_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.update_message, release.version))
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = release.notes.take(600),
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 8,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onDownload) {
+                Text(stringResource(R.string.update_download))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(R.string.update_later))
+            }
+        }
+    )
+}
 
 @Composable
 private fun qualityLabel(quality: RecordQuality): String = stringResource(

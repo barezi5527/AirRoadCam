@@ -36,6 +36,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 
     testOptions {
@@ -90,4 +91,5 @@ dependencies {
     implementation("androidx.camera:camera-effects:$cameraX")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20250517")
 }

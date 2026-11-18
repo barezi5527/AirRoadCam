@@ -201,4 +201,9 @@
     <string name="notification_text_recording">Aufnahme läuft im Hintergrund</string>
     <string name="notification_text_ready">Bereit für die nächste Fahrt</string>
     <string name="notification_action_stop">Stoppen</string>
+
+    <string name="update_title">Update verfügbar</string>
+    <string name="update_message">Air-RoadCam %1$s ist auf GitHub verfügbar. Die APK wird im Browser geöffnet; Download und Installation erfolgen manuell.</string>
+    <string name="update_download">APK öffnen</string>
+    <string name="update_later">Später</string>
 </resources>
