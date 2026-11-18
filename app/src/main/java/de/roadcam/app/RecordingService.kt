@@ -31,6 +31,7 @@ import android.os.HandlerThread
 import android.os.Looper
 import android.os.PowerManager
 import android.util.Log
+import android.util.Range
 import android.util.Size
 import android.view.Display
 import android.view.Surface
@@ -40,7 +41,8 @@ import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
 import androidx.camera.core.MirrorMode
 import androidx.camera.core.Preview
-import androidx.camera.core.UseCaseGroup
+import androidx.camera.core.SessionConfig
+import androidx.camera.core.UseCase
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
 import androidx.camera.core.resolutionselector.ResolutionSelector
 import androidx.camera.core.resolutionselector.ResolutionStrategy
@@ -87,6 +89,7 @@ class RecordingService : LifecycleService() {
         private const val NOTIFICATION_ID = 42
         private const val EVENT_RECORDING_MS = 60_000L
         private const val STATUS_RESTORE_MS = 2_500L
+        private const val TARGET_FPS = 30
         private const val PORTRAIT_WATERMARK_SHIFT_FRACTION = 0.09f
         private const val SPEED_BADGE_TEXT_SIZE_DP = 30f
         private const val PORTRAIT_WATERMARK_TOP_FRACTION = 0.25f
@@ -706,39 +709,67 @@ class RecordingService : LifecycleService() {
             }
         }
 
-        fun buildGroup(includePhoto: Boolean): Pair<UseCaseGroup, OverlayEffect?> {
-            val builder = UseCaseGroup.Builder()
-                .addUseCase(previewUseCase)
-                .addUseCase(capture)
-            if (includePhoto) builder.addUseCase(photoCapture)
+        fun capFrameRate(session: SessionConfig): SessionConfig {
+            val info = runCatching { provider.getCameraInfo(selector, session) }.getOrNull() ?: return session
+            val ranges = runCatching { info.getSupportedFrameRateRanges(session) }
+                .getOrDefault(emptySet())
+            val range = ranges.firstOrNull { it.lower == TARGET_FPS && it.upper == TARGET_FPS }
+                ?: ranges.firstOrNull { it.upper == TARGET_FPS }
+                ?: return session
+            val capped = runCatching {
+                SessionConfig.Builder(session).setFrameRateRange(range).build()
+            }.getOrNull() ?: return session
+            if (!runCatching { info.isSessionConfigSupported(capped) }.getOrDefault(false)) return session
+            return capped
+        }
+
+        fun buildSession(
+            includePhoto: Boolean,
+            capFps: Boolean = true
+        ): Pair<SessionConfig, OverlayEffect?> {
+            val useCases = mutableListOf<UseCase>(previewUseCase, capture)
+            if (includePhoto) useCases += photoCapture
             var targets = CameraEffect.PREVIEW or CameraEffect.VIDEO_CAPTURE
             if (includePhoto) targets = targets or CameraEffect.IMAGE_CAPTURE
             val effect = createEffect(targets)
+            val builder = SessionConfig.Builder(useCases)
             effect?.let { builder.addEffect(it) }
-            return builder.build() to effect
+            val session = builder.build()
+            return (if (capFps) capFrameRate(session) else session) to effect
         }
 
         var boundPhoto = true
         var activeEffect: OverlayEffect? = null
         try {
-            val (group, effect) = buildGroup(includePhoto = true)
+            val (session, effect) = buildSession(includePhoto = true)
             activeEffect = effect
             provider.unbindAll()
-            provider.bindToLifecycle(this, selector, group)
+            provider.bindToLifecycle(this, selector, session)
         } catch (photoError: Exception) {
             Log.w(TAG, "Camera bind with ImageCapture failed, retrying without snapshots", photoError)
             activeEffect?.close()
             activeEffect = null
             boundPhoto = false
-            val (group, effect) = buildGroup(includePhoto = false)
+            val (session, effect) = buildSession(includePhoto = false)
             activeEffect = effect
             try {
                 provider.unbindAll()
-                provider.bindToLifecycle(this, selector, group)
+                provider.bindToLifecycle(this, selector, session)
             } catch (fallbackError: Exception) {
+                Log.w(TAG, "Camera bind with frame rate cap failed, retrying without it", fallbackError)
                 activeEffect?.close()
                 activeEffect = null
-                throw fallbackError
+                val (session, effect) = buildSession(includePhoto = true, capFps = false)
+                activeEffect = effect
+                try {
+                    provider.unbindAll()
+                    provider.bindToLifecycle(this, selector, session)
+                    boundPhoto = true
+                } catch (error: Exception) {
+                    activeEffect?.close()
+                    activeEffect = null
+                    throw error
+                }
             }
         }
         overlayEffect = activeEffect

@@ -8,7 +8,7 @@ enum class RecordQuality(
     val quality: Quality,
     val bitrate: Int
 ) {
-    SPAREND("Sparsam", "720p", Quality.HD, 4_000_000),
-    AUSGEWOGEN("Ausgewogen", "1080p", Quality.FHD, 6_000_000),
-    HOCH("Hoch", "1080p", Quality.FHD, 10_000_000)
+    SPAREND("Sparsam", "720p", Quality.HD, 2_000_000),
+    AUSGEWOGEN("Ausgewogen", "1080p", Quality.FHD, 4_000_000),
+    HOCH("Hoch", "1080p", Quality.FHD, 6_000_000)
 }
