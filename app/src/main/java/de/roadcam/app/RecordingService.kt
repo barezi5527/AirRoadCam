@@ -89,7 +89,8 @@ class RecordingService : LifecycleService() {
         private const val NOTIFICATION_ID = 42
         private const val EVENT_RECORDING_MS = 60_000L
         private const val STATUS_RESTORE_MS = 2_500L
-        private const val TARGET_FPS = 30
+        private const val THERMAL_POLL_MS = 15_000L
+        private const val WATERMARK_LOCATION_INTERVAL_MS = 3 * 60_000L
         private const val PORTRAIT_WATERMARK_SHIFT_FRACTION = 0.09f
         private const val SPEED_BADGE_TEXT_SIZE_DP = 30f
         private const val PORTRAIT_WATERMARK_TOP_FRACTION = 0.25f
@@ -169,6 +170,17 @@ class RecordingService : LifecycleService() {
     private var eventRecordingActive = false
     private var wakeLock: PowerManager.WakeLock? = null
 
+    private var thermalLevel = 0
+    private var thermalCandidate = 0
+    private var thermalCandidateCount = 0
+    private var thermalRebindPending = false
+    private val thermalRunnable = object : Runnable {
+        override fun run() {
+            checkThermalStatus()
+            mainHandler.postDelayed(this, THERMAL_POLL_MS)
+        }
+    }
+
     private var sensorManager: SensorManager? = null
     private var shockSensor: Sensor? = null
     private var shockDetector: ShockDetector? = null
@@ -186,6 +198,7 @@ class RecordingService : LifecycleService() {
     private var locationManager: LocationManager? = null
     private var locationListener: LocationListener? = null
     private var locationProvider: String? = null
+    private var locationIntervalMs = 0L
     private var displayListener: DisplayManager.DisplayListener? = null
     private var cameraRotation = Surface.ROTATION_0
     private var restartRecordingAfterRebind = false
@@ -244,6 +257,7 @@ class RecordingService : LifecycleService() {
         bindCamera()
         updateShockMonitoring()
         updateLocationUpdates()
+        mainHandler.post(thermalRunnable)
     }
 
     override fun onBind(intent: Intent): android.os.IBinder {
@@ -275,6 +289,7 @@ class RecordingService : LifecycleService() {
         mainHandler.removeCallbacks(segmentTimer)
         mainHandler.removeCallbacks(eventStopTimer)
         mainHandler.removeCallbacks(restoreStatus)
+        mainHandler.removeCallbacks(thermalRunnable)
         activeRecording?.stop()
         stopShockMonitoring()
         stopLocationUpdates()
@@ -290,6 +305,47 @@ class RecordingService : LifecycleService() {
         snapshotExecutor.shutdown()
         super.onDestroy()
     }
+
+    private fun checkThermalStatus() {
+        val manager = getSystemService(Context.POWER_SERVICE) as? PowerManager ?: return
+        val level = ThermalPolicy.levelForStatus(manager.currentThermalStatus)
+        if (level == thermalLevel) {
+            thermalCandidate = level
+            thermalCandidateCount = 0
+            return
+        }
+        if (level != thermalCandidate) {
+            thermalCandidate = level
+            thermalCandidateCount = 1
+        } else {
+            thermalCandidateCount++
+        }
+        if (thermalCandidateCount < 2) return
+        thermalLevel = level
+        onThermalLevelChanged()
+    }
+
+    private fun onThermalLevelChanged() {
+        updateState { state ->
+            state.copy(
+                thermalLevel = thermalLevel,
+                activeFps = effectiveFps(),
+                thermalHint = when (thermalLevel) {
+                    1 -> UiText(R.string.thermal_hint_moderate)
+                    2 -> UiText(R.string.thermal_hint_severe)
+                    else -> null
+                }
+            )
+        }
+        if (recordingRequested) thermalRebindPending = true else scheduleCameraRebind()
+    }
+
+    private fun effectiveFps(): Int = ThermalPolicy.fps(thermalLevel)
+
+    private fun effectiveBitrate(base: Int): Int = ThermalPolicy.bitrate(thermalLevel, base)
+
+    private fun effectiveQuality(): Quality =
+        if (thermalLevel >= 2) Quality.HD else settings.quality.quality
 
     fun setPreviewSurfaceProvider(provider: Preview.SurfaceProvider?) {
         surfaceProvider = provider
@@ -311,7 +367,8 @@ class RecordingService : LifecycleService() {
             settings.quality != previous.quality ||
                 settings.hevcEnabled != previous.hevcEnabled ||
                 settings.gpsSpeedEnabled != previous.gpsSpeedEnabled ||
-                settings.watermarkEnabled != previous.watermarkEnabled
+                settings.watermarkEnabled != previous.watermarkEnabled ||
+                settings.previewOff != previous.previewOff
             )
         if (needsCameraRebind) {
             bindCamera()
@@ -573,7 +630,9 @@ class RecordingService : LifecycleService() {
         refreshClips()
 
         val previous = previousSegment
-        if (previous != null && settings.overlapSeconds > 0 && previous.exists()) {
+        if (previous != null && ThermalPolicy.overlapAllowed(thermalLevel) &&
+            settings.overlapSeconds > 0 && previous.exists()
+        ) {
             val seconds = settings.overlapSeconds
             overlapExecutor.execute {
                 SegmentOverlap.prependTail(previous, file, seconds)
@@ -588,7 +647,12 @@ class RecordingService : LifecycleService() {
             updateState { it.copy(recording = false, currentProtected = false) }
             setStatus(UiText(R.string.status_saved))
             updateNotification()
-            if (currentDisplayRotation() != cameraRotation) scheduleCameraRebind()
+            if (thermalRebindPending) {
+                thermalRebindPending = false
+                scheduleCameraRebind()
+            } else if (currentDisplayRotation() != cameraRotation) {
+                scheduleCameraRebind()
+            }
         }
     }
 
@@ -664,11 +728,11 @@ class RecordingService : LifecycleService() {
         val recorderBuilder = Recorder.Builder()
             .setQualitySelector(
                 QualitySelector.from(
-                    settings.quality.quality,
+                    effectiveQuality(),
                     FallbackStrategy.lowerQualityOrHigherThan(Quality.SD)
                 )
             )
-            .setTargetVideoEncodingBitRate(settings.quality.bitrate)
+            .setTargetVideoEncodingBitRate(effectiveBitrate(settings.quality.bitrate))
         if (hevcActive) {
             recorderBuilder
                 .setVideoMimeType(MediaFormat.MIMETYPE_VIDEO_HEVC)
@@ -678,13 +742,14 @@ class RecordingService : LifecycleService() {
         val capture = VideoCapture.withOutput(recorderBuilder.build())
         displayRotation?.let { capture.targetRotation = it }
 
+        val photoSize = if (thermalLevel >= 1) Size(1280, 720) else Size(1920, 1080)
         val photoCapture = ImageCapture.Builder()
             .setResolutionSelector(
                 ResolutionSelector.Builder()
                     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_16_9_FALLBACK_AUTO_STRATEGY)
                     .setResolutionStrategy(
                         ResolutionStrategy(
-                            Size(1920, 1080),
+                            photoSize,
                             ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
                         )
                     )
@@ -709,17 +774,30 @@ class RecordingService : LifecycleService() {
             }
         }
 
+        val includePreview = !settings.previewOff && thermalLevel < 2
+        var appliedFps = effectiveFps()
+
         fun capFrameRate(session: SessionConfig): SessionConfig {
             val info = runCatching { provider.getCameraInfo(selector, session) }.getOrNull() ?: return session
             val ranges = runCatching { info.getSupportedFrameRateRanges(session) }
                 .getOrDefault(emptySet())
-            val range = ranges.firstOrNull { it.lower == TARGET_FPS && it.upper == TARGET_FPS }
-                ?: ranges.firstOrNull { it.upper == TARGET_FPS }
-                ?: return session
+            val targetFps = effectiveFps()
+            val range = ranges.firstOrNull { it.lower == targetFps && it.upper == targetFps }
+                ?: ranges.firstOrNull { it.upper == targetFps }
+                ?: run {
+                    appliedFps = ThermalPolicy.DEFAULT_FPS
+                    return session
+                }
             val capped = runCatching {
                 SessionConfig.Builder(session).setFrameRateRange(range).build()
-            }.getOrNull() ?: return session
-            if (!runCatching { info.isSessionConfigSupported(capped) }.getOrDefault(false)) return session
+            }.getOrNull() ?: run {
+                appliedFps = ThermalPolicy.DEFAULT_FPS
+                return session
+            }
+            if (!runCatching { info.isSessionConfigSupported(capped) }.getOrDefault(false)) {
+                appliedFps = ThermalPolicy.DEFAULT_FPS
+                return session
+            }
             return capped
         }
 
@@ -727,9 +805,11 @@ class RecordingService : LifecycleService() {
             includePhoto: Boolean,
             capFps: Boolean = true
         ): Pair<SessionConfig, OverlayEffect?> {
-            val useCases = mutableListOf<UseCase>(previewUseCase, capture)
+            val useCases = mutableListOf<UseCase>()
+            if (includePreview) useCases += previewUseCase
+            useCases += capture
             if (includePhoto) useCases += photoCapture
-            var targets = CameraEffect.PREVIEW or CameraEffect.VIDEO_CAPTURE
+            var targets = (if (includePreview) CameraEffect.PREVIEW else 0) or CameraEffect.VIDEO_CAPTURE
             if (includePhoto) targets = targets or CameraEffect.IMAGE_CAPTURE
             val effect = createEffect(targets)
             val builder = SessionConfig.Builder(useCases)
@@ -774,7 +854,7 @@ class RecordingService : LifecycleService() {
         }
         overlayEffect = activeEffect
 
-        preview = previewUseCase
+        preview = if (includePreview) previewUseCase else null
         videoCapture = capture
         imageCapture = if (boundPhoto) photoCapture else null
         registerDisplayListener()
@@ -785,7 +865,8 @@ class RecordingService : LifecycleService() {
                 lensFacing = lensFacing,
                 canSwitchCamera = canSwitchCamera,
                 hevcActive = hevcActive,
-                snapshotAvailable = boundPhoto
+                snapshotAvailable = boundPhoto,
+                activeFps = appliedFps
             )
         }
         setStatus(UiText(R.string.status_ready))
@@ -828,6 +909,7 @@ class RecordingService : LifecycleService() {
     private fun drawOverlays(frame: Frame) {
         val canvas: Canvas = frame.overlayCanvas
         canvas.drawColor(Color.TRANSPARENT, PorterDuff.Mode.CLEAR)
+        if (_state.value.thermalLevel >= 2) return
 
         // For photos the crop rect can be reported in a larger coordinate
         // space (sensor active array) than the overlay canvas, which would
@@ -981,12 +1063,13 @@ class RecordingService : LifecycleService() {
             stopLocationUpdates()
             return
         }
-        if (locationListener != null) return
+        val interval = if (settings.gpsSpeedEnabled) 1_000L else WATERMARK_LOCATION_INTERVAL_MS
+        if (locationListener != null && locationIntervalMs == interval) return
         startForegroundWithType()
-        startLocationUpdates()
+        startLocationUpdates(interval)
     }
 
-    private fun startLocationUpdates() {
+    private fun startLocationUpdates(intervalMs: Long) {
         stopLocationUpdates()
         val manager = getSystemService(Context.LOCATION_SERVICE) as? LocationManager ?: return
         val fineGranted = ContextCompat.checkSelfPermission(
@@ -1006,6 +1089,7 @@ class RecordingService : LifecycleService() {
         val listener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
                 lastLocation = location
+                if (!settings.gpsSpeedEnabled) return
                 setSpeed(
                     if (location.hasSpeed()) {
                         (location.speed * 3.6f).coerceAtLeast(0f)
@@ -1025,11 +1109,11 @@ class RecordingService : LifecycleService() {
             }
         }
         try {
-            manager.requestLocationUpdates(provider, 1_000L, 0f, listener, Looper.getMainLooper())
+            manager.requestLocationUpdates(provider, intervalMs, 0f, listener, Looper.getMainLooper())
             manager.getLastKnownLocation(provider)?.let { location ->
-                if (System.currentTimeMillis() - location.time < 30_000L) {
+                if (System.currentTimeMillis() - location.time < intervalMs) {
                     lastLocation = location
-                    if (location.hasSpeed()) {
+                    if (settings.gpsSpeedEnabled && location.hasSpeed()) {
                         setSpeed((location.speed * 3.6f).coerceAtLeast(0f))
                     }
                 }
@@ -1037,6 +1121,7 @@ class RecordingService : LifecycleService() {
             locationManager = manager
             locationListener = listener
             locationProvider = provider
+            locationIntervalMs = intervalMs
         } catch (_: SecurityException) {
             setSpeed(null)
         }
@@ -1116,6 +1201,7 @@ class RecordingService : LifecycleService() {
         locationManager = null
         locationListener = null
         locationProvider = null
+        locationIntervalMs = 0L
         lastLocation = null
         setSpeed(null)
     }

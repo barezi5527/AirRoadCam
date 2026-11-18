@@ -42,6 +42,7 @@ class SettingsStore(context: Context) {
                     null -> defaults.screenTimeoutMinutes
                 }
             ).takeIf { it in DashcamSettings.SCREEN_TIMEOUT_MINUTES } ?: defaults.screenTimeoutMinutes,
+            previewOff = prefs.getBoolean("previewOff", defaults.previewOff),
             darkTheme = prefs.getBoolean("darkTheme", defaults.darkTheme)
         )
     }
@@ -64,6 +65,7 @@ class SettingsStore(context: Context) {
             .putBoolean("gSensorEnabled", settings.gSensorEnabled)
             .putString("gSensorSensitivity", settings.gSensorSensitivity.name)
             .putInt("screenTimeoutMinutes", settings.screenTimeoutMinutes)
+            .putBoolean("previewOff", settings.previewOff)
             .remove("keepScreenOn")
             .putBoolean("darkTheme", settings.darkTheme)
             .apply()

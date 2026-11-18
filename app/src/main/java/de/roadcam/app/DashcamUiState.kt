@@ -13,5 +13,8 @@ data class DashcamUiState(
     val hevcActive: Boolean = false,
     val snapshotAvailable: Boolean = false,
     val speedKmh: Float? = null,
+    val activeFps: Int = 30,
+    val thermalLevel: Int = 0,
+    val thermalHint: UiText? = null,
     val settings: DashcamSettings = DashcamSettings()
 )

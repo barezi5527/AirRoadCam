@@ -17,6 +17,7 @@ data class DashcamSettings(
     val gSensorEnabled: Boolean = false,
     val gSensorSensitivity: GSensorSensitivity = GSensorSensitivity.MITTEL_2,
     val screenTimeoutMinutes: Int = 1,
+    val previewOff: Boolean = false,
     val darkTheme: Boolean = true
 ) {
     val segmentLengthMs: Long get() = clipMinutes * 60L * 1000L

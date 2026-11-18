@@ -613,6 +613,15 @@ private fun DashcamHome(
                                 )
                             }
                         }
+                        state.thermalHint?.let { hint ->
+                            Surface(shape = CircleShape, color = Color.Black.copy(alpha = .58f)) {
+                                Text(
+                                    stringResource(hint.resId, *hint.args.toTypedArray()),
+                                    Modifier.padding(horizontal = 9.dp, vertical = 6.dp),
+                                    color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
                     }
                     if (hasCameraPermission && state.canSwitchCamera) {
                         Surface(
@@ -634,7 +643,7 @@ private fun DashcamHome(
                         } else ""
                         val codec = if (state.hevcActive) "HEVC" else "H.264"
                         Text(
-                            front + "${settings.quality.badge}  ·  30 FPS  ·  $codec",
+                            front + "${settings.quality.badge}  ·  ${state.activeFps} FPS  ·  $codec",
                             Modifier.padding(horizontal = 9.dp, vertical = 6.dp), color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold
                         )
                     }
@@ -973,6 +982,12 @@ private fun DashcamHome(
                         fontSize = 11.sp,
                         modifier = Modifier.padding(top = 6.dp)
                     )
+                    Spacer(Modifier.height(14.dp))
+                    SwitchRow(
+                        stringResource(R.string.mode_preview_off),
+                        stringResource(R.string.mode_preview_off_hint),
+                        draft.previewOff
+                    ) { enabled -> draft = draft.copy(previewOff = enabled) }
                 }
             },
             confirmButton = {
@@ -1586,6 +1601,14 @@ private fun DashcamLandscape(
                     color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = .7.sp
                 )
             }
+            state.thermalHint?.let { hint ->
+                OverlayPill {
+                    Text(
+                        stringResource(hint.resId, *hint.args.toTypedArray()),
+                        color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold
+                    )
+                }
+            }
             if (settings.gpsSpeedEnabled && hasLocationPermission) {
                 OverlayPill {
                     Icon(
@@ -1615,7 +1638,7 @@ private fun DashcamLandscape(
                 } else ""
                 val codec = if (state.hevcActive) "HEVC" else "H.264"
                 Text(
-                    front + "${settings.quality.badge} · 30 FPS · $codec",
+                    front + "${settings.quality.badge} · ${state.activeFps} FPS · $codec",
                     color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold
                 )
             }

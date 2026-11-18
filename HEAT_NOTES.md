@@ -1,6 +1,6 @@
 # Notizen: Wärmeentwicklung reduzieren
 
-Stand: nach Commit `519dbbc`. Zwei Agenten haben den Code unabhängig geprüft (Kamera/Encoder sowie UI/Hintergrund). Dies ist eine Ideensammlung – nichts davon ist umgesetzt.
+Stand: nach Commit `87deb38` plus aktuellen, noch nicht committeten Wärmemaßnahmen. Zwei Agenten haben den Code unabhängig geprüft (Kamera/Encoder sowie UI/Hintergrund).
 
 ## Ziel
 
@@ -46,9 +46,10 @@ Daueraufnahme über 75 Minuten ohne starke Erwärmung. Die Aufnahmequalität (Ke
 
 ## Entscheidungen und offene Punkte
 
-- **Umgesetzt (noch nicht committet): Bitrate und FPS senken.** 720p 4 → 2 Mbps, 1080p 6/10 → 4/6 Mbps (`RecordQuality.kt:11-13`). Session-FPS auf 30 begrenzt, sofern die Kamera eine passende Range meldet und die Session unterstützt; bei Bind-Fehler zuerst Fallback ohne Foto, dann ohne FPS-Cap (`RecordingService.kt:709`). A/B-Messung der Wirkung steht noch aus.
-- **GPS aufteilen (beschlossen):** 1-Hz-Updates nur noch bei aktivem `gpsSpeedEnabled` und nur bei Änderung der auf 1 km/h gerundeten Geschwindigkeit (`RecordingService.kt:1014`). Im Wasserzeichen-only-Modus kein 1-Hz-Listener, sondern `lastLocation` über `getLastKnownLocation()` oder einen Fix alle 1–2 Minuten aktualisieren (`RecordingService.kt:949, 997`). Wenn beides aktiv ist, nutzt das Wasserzeichen denselben 1-Hz-Fix ohne Zusatzarbeit. Grund: Der 1-Hz-State löst eine komplette Compose-Recomposition aus (`DashcamViewModel.kt:54`, `MainActivity.kt:188`), auch wenn im Hochformat gar keine Geschwindigkeit angezeigt wird.
-- 480p als Sparprofil vorerst verworfen: etwas weniger Encoderarbeit, aber schlechtere Kennzeichenlesbarkeit und nur moderater Effekt, solange Bitrate/Preview/Display unverändert bleiben.
-- Offen: ob 25 fps statt 30 fps nochmals messbar hitzereduziert (bei Bewegung weniger flüssig).
-- Offen: ob ein 480p-Profil später doch als zusätzliche Option sinnvoll ist.
-- Offen: A/B-Messung mit `getCurrentThermalStatus()`/`BatteryManager` vor und nach der Änderung.
+- **Umgesetzt (`39dc01b`): Bitrate und FPS senken.** 720p 4 → 2 Mbps, 1080p 6/10 → 4/6 Mbps. Session-FPS auf 30 begrenzt, sofern die Kamera die Range meldet; Fallback ohne Foto, dann ohne Cap.
+- **Umgesetzt (aktuell): Thermie-Regler.** Alle 15 s `getCurrentThermalStatus()`; zwei aufeinanderfolgende Messungen nötig (Hysterese). Stufe 1: Bitrate ×0,75, Overlap aus, Fotos 1280×720. Stufe 2: 720p, 25 fps, 2 Mbps, Overlay/Preview aus. Hinweis erscheint als Pill im Hoch- und Querformat. Änderungen an der Kamera-Session werden während laufender Aufnahme bis zum nächsten Bind verzögert.
+- **Umgesetzt (aktuell): GPS-Split.** 1 Hz nur bei aktivem Geschwindigkeits-Overlay; im Wasserzeichen-only-Modus ein Fix alle 3 min plus `getLastKnownLocation()` als Startwert. Die Uhrzeit im Wasserzeichen bleibt sekundengenau.
+- **Umgesetzt (aktuell): „Vorschau aus“** als Option im Aufnahmemodus; `Preview`-UseCase wird dann nicht gebunden.
+- 480p als Sparprofil vorerst verworfen: etwas weniger Encoderarbeit, aber schlechtere Kennzeichenlesbarkeit und nur moderater Effekt.
+- Bewusst nicht umgesetzt: `ImageCapture` vollständig lazy zu binden. Ein Rebind während der Aufnahme würde die Videoaufnahme unterbrechen; stattdessen wird die Fotoauflösung bei Wärme reduziert.
+- Offen: A/B-Messung mit `getCurrentThermalStatus()`/`BatteryManager` und Dauerausfall-Test über 75 min.
